@@ -15,8 +15,12 @@ public record StorageProperties(Path location, Set<String> allowedExtensions) {
 
     private static final Path DEFAULT_LOCATION = Path.of("cv-uploads");
 
-    /** PDFBox reads pdf; POI XWPF reads docx. Nothing else is extractable yet. */
-    private static final Set<String> DEFAULT_EXTENSIONS = Set.of("pdf", "docx");
+    /**
+     * PDFBox reads pdf; POI XWPF reads docx; txt is read as-is. Nothing else is
+     * extractable yet, and every entry here needs a matching rule in
+     * {@link FileSignatureValidator} or the context will not start.
+     */
+    private static final Set<String> DEFAULT_EXTENSIONS = Set.of("pdf", "docx", "txt");
 
     public StorageProperties {
         if (location == null) {

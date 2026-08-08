@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -24,8 +25,10 @@ public class FileSystemStorageService implements StorageService {
     private final Path root;
     private final Set<String> allowedExtensions;
     private final String allowedExtensionsForMessage;
+    private final FileSignatureValidator signatureValidator;
 
-    public FileSystemStorageService(StorageProperties properties) {
+    public FileSystemStorageService(StorageProperties properties, FileSignatureValidator signatureValidator) {
+        this.signatureValidator = signatureValidator;
         // Absolute and normalized once, here. resolveWithinRoot compares candidate
         // paths against this field, and that comparison is meaningless if the root
         // is relative or still contains "." / ".." segments.
@@ -57,7 +60,25 @@ public class FileSystemStorageService implements StorageService {
         String storageKey = UUID.randomUUID() + "." + extension;
         Path target = resolveWithinRoot(storageKey);
 
-        try (InputStream in = file.getInputStream()) {
+        // One stream, read twice. mark/reset rather than a second
+        // file.getInputStream() call: whether a MultipartFile hands out a fresh
+        // stream on every call is an implementation detail of the resolver, and
+        // this does not need to know. The buffer is sized to the readlimit
+        // because BufferedInputStream can only honour reset() while the marked
+        // region still fits in its buffer.
+        try (InputStream in = new BufferedInputStream(file.getInputStream(),
+                FileSignatureValidator.HEADER_BYTES)) {
+            in.mark(FileSignatureValidator.HEADER_BYTES);
+            byte[] header = in.readNBytes(FileSignatureValidator.HEADER_BYTES);
+
+            // Throws before the first byte reaches disk. This ordering is the
+            // reason the check lives here rather than in the controller: no
+            // caller of store() can skip it, and a rejected upload leaves
+            // nothing behind to clean up.
+            signatureValidator.validate(extension, header);
+
+            in.reset();
+
             // Deliberately no REPLACE_EXISTING. A UUIDv4 collision means something
             // is badly wrong, and overwriting another candidate's CV is worse than
             // failing loudly.

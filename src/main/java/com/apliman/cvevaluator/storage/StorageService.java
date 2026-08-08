@@ -17,8 +17,9 @@ public interface StorageService {
     /**
      * Stores the upload under a generated filename and returns a handle to it.
      *
-     * @throws InvalidUploadException if the file is empty, unnamed, or its
-     *                               extension is not on the allowlist
+     * @throws InvalidUploadException if the file is empty, unnamed, its
+     *                               extension is not on the allowlist, or its
+     *                               leading bytes contradict that extension
      * @throws StorageException      if the bytes could not be written
      */
     StoredFile store(MultipartFile file);

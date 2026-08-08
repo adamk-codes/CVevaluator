@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.IOException;
@@ -16,11 +17,17 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 class FileSystemStorageServiceTest {
 
@@ -30,16 +37,31 @@ class FileSystemStorageServiceTest {
     private Path root;
     private FileSystemStorageService service;
 
+    private FileSignatureValidator validator;
+
     @BeforeEach
     void setUp() {
         // A named subdirectory, not tempDir itself, so the sibling-prefix test
         // below has somewhere outside the root to try to reach.
         root = tempDir.resolve("uploads");
-        service = serviceWith(root, Set.of("pdf", "docx"));
+        validator = mock(FileSignatureValidator.class);
+        service = serviceWith(root, Set.of("pdf", "docx"), validator);
     }
 
-    private static FileSystemStorageService serviceWith(Path location, Set<String> extensions) {
-        return new FileSystemStorageService(new StorageProperties(location, extensions));
+    /**
+     * The default validator here is a permissive mock, so the fixtures below can
+     * stay readable strings instead of hand-built file headers. What the rules
+     * actually say is FileSignatureValidatorTest's job; this class is about
+     * names, paths and the allowlist. The two tests that need the real rules ask
+     * for them explicitly.
+     */
+    private FileSystemStorageService serviceWith(Path location, Set<String> extensions) {
+        return serviceWith(location, extensions, validator);
+    }
+
+    private static FileSystemStorageService serviceWith(
+            Path location, Set<String> extensions, FileSignatureValidator validator) {
+        return new FileSystemStorageService(new StorageProperties(location, extensions), validator);
     }
 
     private static MockMultipartFile upload(String filename, String content) {
@@ -165,6 +187,89 @@ class FileSystemStorageServiceTest {
         FileSystemStorageService shouty = serviceWith(tempDir.resolve("shouty"), Set.of("PDF"));
 
         assertDoesNotThrow(() -> shouty.store(upload("cv.pdf", "hello")));
+    }
+
+    // --- content check ------------------------------------------------------
+
+    @Nested
+    @DisplayName("magic-byte check")
+    class ContentCheck {
+
+        /** The first bytes of a real PDF. */
+        private static final byte[] PDF_HEADER = "%PDF-1.7\n%âãÏÓ\n"
+                .getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
+
+        /** "MZ" and a DOS header full of zeroes - a Windows executable. */
+        private static byte[] executable() {
+            byte[] bytes = new byte[64];
+            bytes[0] = 'M';
+            bytes[1] = 'Z';
+            bytes[2] = (byte) 0x90;
+            return bytes;
+        }
+
+        private FileSystemStorageService withRealValidator() {
+            Set<String> extensions = Set.of("pdf", "docx", "txt");
+            return serviceWith(root, extensions,
+                    new FileSignatureValidator(new StorageProperties(root, extensions)));
+        }
+
+        @Test
+        @DisplayName("the file's leading bytes are handed to the validator with its extension")
+        void validatorSeesTheHeader() {
+            service.store(new MockMultipartFile("file", "cv.pdf", "application/pdf", PDF_HEADER));
+
+            ArgumentCaptor<byte[]> header = ArgumentCaptor.forClass(byte[].class);
+            verify(validator).validate(eq("pdf"), header.capture());
+            assertArrayEquals(PDF_HEADER, header.getValue());
+        }
+
+        /**
+         * The ordering that makes the whole design work. The validator runs
+         * against a marked stream that is then reset, so a rejection happens
+         * before Files.copy - there is no partial file and nothing to clean up.
+         */
+        @Test
+        @DisplayName("a rejected upload writes nothing to disk")
+        void rejectionLeavesNoFile() throws IOException {
+            doThrow(new InvalidUploadException("nope")).when(validator).validate(any(), any());
+
+            assertThrows(InvalidUploadException.class, () -> service.store(upload("cv.pdf", "whatever")));
+            assertTrue(filesInRoot().isEmpty(), "rejected upload still wrote to disk");
+        }
+
+        @Test
+        @DisplayName("an executable renamed to .pdf is rejected and leaves no file")
+        void renamedExecutableRejected() throws IOException {
+            FileSystemStorageService real = withRealValidator();
+            MockMultipartFile disguised =
+                    new MockMultipartFile("file", "cv.pdf", "application/pdf", executable());
+
+            assertThrows(InvalidUploadException.class, () -> real.store(disguised));
+            assertTrue(filesInRoot().isEmpty(), "rejected upload still wrote to disk");
+        }
+
+        /**
+         * The other half of that test: the real rules must not break the happy
+         * path. The bytes are read twice - once to check, once to copy - and
+         * this is what proves the reset() put the stream back where it started.
+         */
+        @Test
+        @DisplayName("a real PDF still stores, with every byte intact after the header is read")
+        void realPdfStillStores() throws IOException {
+            FileSystemStorageService real = withRealValidator();
+            byte[] content = new byte[PDF_HEADER.length + 2000];
+            System.arraycopy(PDF_HEADER, 0, content, 0, PDF_HEADER.length);
+            java.util.Arrays.fill(content, PDF_HEADER.length, content.length, (byte) 'x');
+
+            StoredFile stored =
+                    real.store(new MockMultipartFile("file", "cv.pdf", "application/pdf", content));
+
+            // Longer than the 512-byte mark readlimit on purpose: if reset()
+            // were dropping the buffered prefix, or the copy were starting after
+            // the header, this comparison is where it would show.
+            assertArrayEquals(content, Files.readAllBytes(real.load(stored.storageKey())));
+        }
     }
 
     // --- path traversal -----------------------------------------------------

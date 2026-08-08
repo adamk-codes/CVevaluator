@@ -3,6 +3,7 @@ package com.apliman.cvevaluator.application;
 import com.apliman.cvevaluator.job.Job;
 import com.apliman.cvevaluator.job.JobRepository;
 import com.apliman.cvevaluator.security.CurrentUserProvider;
+import com.apliman.cvevaluator.storage.InvalidUploadException;
 import com.apliman.cvevaluator.storage.StorageService;
 import com.apliman.cvevaluator.storage.StoredFile;
 import com.apliman.cvevaluator.user.Role;
@@ -91,6 +92,30 @@ class ApplicationControllerTest {
         // A rejected request must not leave a file behind. This is why the
         // existence check runs before the write rather than inside the insert.
         verify(storageService, never()).store(any());
+        verify(applicationService, never()).create(anyLong(), anyLong(), any(), anyString());
+    }
+
+    /**
+     * The magic-byte rejection seen from outside. FileSignatureValidatorTest
+     * covers which bytes are rejected; this covers what the client gets when
+     * they are - a 400 with a readable body, not a 500 and not a stack trace.
+     */
+    @Test
+    void submitCv_contentDoesNotMatchExtension_returns400WithoutInsertingARow() throws Exception {
+        when(currentUserProvider.currentUserId()).thenReturn(7L);
+        when(jobRepository.existsById(1L)).thenReturn(true);
+        when(userRepository.existsById(7L)).thenReturn(true);
+        when(storageService.store(any()))
+                .thenThrow(new InvalidUploadException("File content does not match its .pdf extension"));
+
+        MockMultipartFile disguised =
+                new MockMultipartFile("file", "cv.pdf", "application/pdf", new byte[] { 'M', 'Z', 0x00 });
+
+        mockMvc.perform(multipart("/api/jobs/1/applications").file(disguised))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("File content does not match its .pdf extension"));
+
         verify(applicationService, never()).create(anyLong(), anyLong(), any(), anyString());
     }
 
