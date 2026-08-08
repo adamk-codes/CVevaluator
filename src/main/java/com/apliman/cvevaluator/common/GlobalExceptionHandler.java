@@ -11,6 +11,8 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 
 import java.util.stream.Collectors;
 
@@ -58,6 +60,28 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(400, ex.getMessage()));
+    }
+
+    // Thrown during multipart resolution, before the controller method is
+    // entered - spring.servlet.multipart.max-file-size does the rejecting, not
+    // application code. Message is fixed rather than ex.getMessage(), which
+    // reports the raw byte counts and the resolver internals.
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleUploadTooLarge(MaxUploadSizeExceededException ex) {
+        return ResponseEntity
+                .status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(new ErrorResponse(413, "File is too large. Maximum upload size is 10MB"));
+    }
+
+    // The request claimed multipart but could not be parsed - broken boundary,
+    // truncated body. MaxUploadSizeExceededException is a subclass and is
+    // matched by the more specific handler above regardless of declaration order.
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ErrorResponse> handleMalformedMultipart(MultipartException ex) {
+        log.warn("Malformed multipart request", ex);
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(400, "Malformed multipart request"));
     }
 
     // Fixed message: StorageException carries the absolute storage root, which the
