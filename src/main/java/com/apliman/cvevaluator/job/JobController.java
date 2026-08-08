@@ -5,6 +5,7 @@ import com.apliman.cvevaluator.job.dto.JobResponse;
 import com.apliman.cvevaluator.security.HeaderCurrentUserProvider;
 import com.apliman.cvevaluator.user.User;
 import com.apliman.cvevaluator.user.UserRepository;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,7 +26,7 @@ public class JobController {
     }
 
     @PostMapping
-    public ResponseEntity<JobResponse> createJob(@RequestBody CreateJobRequest request){
+    public ResponseEntity<JobResponse> createJob(@Valid @RequestBody CreateJobRequest request){
         User recruiter = userRepo.findById(idProvider.currentUserId())
                 .orElseThrow(() -> new IllegalStateException("Current user not found"));
         Job job=new Job(request.title(),request.description(),request.requirements(),request.seniority(), recruiter);
