@@ -32,6 +32,9 @@ build/
 ### VS Code ###
 .vscode/
 
+### Uploaded CVs — never commit candidate files ###
+cv-uploads/
+
 # Compiled class file
 *.class
 
