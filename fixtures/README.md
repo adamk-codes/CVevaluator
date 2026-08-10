@@ -153,7 +153,8 @@ PDFBox does no Arabic contextual shaping, so on screen the letters appear in
 isolated form. The extracted characters are correct, which is what the
 pipeline consumes.
 
-**`adv-01` is a JPEG, so it is 135 KB while every other fixture is a few KB.**
-That is the file, not a mistake. It is also the only fixture whose size is
-anywhere near the 10 MB upload limit, so it is not testing that limit —
-nothing here is.
+**Nothing here tests the 10 MB upload limit.** The whole corpus is 517 KB. The
+three largest files are `adv-01` at 135 KB (it is a JPEG, hence the jump),
+`adv-02` at 55 KB and `adv-03` at 24 KB, because it embeds a font subset; every
+CV is under 4 KB. If the multipart size limit needs a fixture, it needs a new
+one.
