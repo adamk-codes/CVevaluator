@@ -33,7 +33,23 @@
 		     spring-boot-dependencies. -->
 		<pdfbox.version>3.0.5</pdfbox.version>
 		<poi.version>5.4.1</poi.version>
+		<spring-ai.version>2.0.0</spring-ai.version>
 	</properties>
+
+	<!-- Spring AI ships its own BOM; it is not part of spring-boot-dependencies.
+	     Every spring-ai-* artifact below therefore takes its version from here and
+	     none carry one inline. -->
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.ai</groupId>
+				<artifactId>spring-ai-bom</artifactId>
+				<version>${spring-ai.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -64,6 +80,14 @@
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi-ooxml</artifactId>
 			<version>${poi.version}</version>
+		</dependency>
+
+		<!-- Evaluation. Only the Developer-API key is ever configured for this
+		     starter - see the Gemini note in CLAUDE.md: adding project-id or
+		     location flips the client into Vertex AI mode and the key is rejected. -->
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-starter-model-google-genai</artifactId>
 		</dependency>
 
 		<dependency>

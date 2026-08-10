@@ -16,4 +16,17 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
      * its extracted text to count them.
      */
     long countByJob(Job job);
+
+    /**
+     * Every application on a job except the ones whose CV never extracted.
+     *
+     * <p>The exclusion is the point: a FAILED row has no text, so re-evaluating
+     * it would produce an assessment grounded in nothing — exactly what the
+     * grounding checker exists to catch, arrived at deliberately.
+     *
+     * <p>Submission order, so a re-evaluation burst processes oldest first and
+     * the log reads in the same order as the applications list a recruiter is
+     * looking at.
+     */
+    List<Application> findByJobAndStatusNotOrderBySubmittedAt(Job job, ApplicationStatus status);
 }

@@ -5,15 +5,18 @@ package com.apliman.cvevaluator.job;
  * old ones are now stale.
  *
  * <p>A seam, in the same spirit as {@code CurrentUserProvider}: one method, one
- * implementation today ({@link NoOpApplicationReevaluationTrigger}), and a
- * one-bean swap once there is an evaluator to call. The interface exists now so
- * that the call site in {@code JobController} is written and tested before the
- * thing it calls exists, rather than the endpoint being reopened later.
+ * implementation, and a one-bean swap. It was introduced while the only
+ * implementation logged and returned, so that the call site in
+ * {@code JobController} was written and tested before the thing it calls
+ * existed. {@link AsyncApplicationReevaluationTrigger} is that implementation
+ * now; the interface stays because the call site is still tested against it
+ * with a mock, and because it is what keeps {@code JobController} from
+ * depending on the evaluation package.
  *
- * <h2>What the real implementation must do</h2>
+ * <h2>What an implementation must do</h2>
  *
  * Recorded here because it is a correctness contract, not an implementation
- * detail, and the bean that has to honour it has not been written yet:
+ * detail — it binds any future replacement, not just the current one:
  *
  * <ul>
  *   <li><strong>Insert new {@code Evaluation} rows only.</strong> Never update,
