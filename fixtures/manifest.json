@@ -1,0 +1,300 @@
+{
+  "note": "Expected outcomes for the fixture corpus. 'bucket' is the coarse split the corpus was built to (5 strong / 8 borderline / 7 weak against each CV's primary job). 'expected' is the precise label for that pair. 'against' labels the same CV against all three jobs, giving 60 labelled pairs. These are the author's judgements, not model output, and are the thing to grade against.",
+  "bands": {
+    "STRONG": "Meets the required list with evidence; would shortlist.",
+    "BORDERLINE": "Real overlap but a named gap in a required area; a human would argue about it.",
+    "WEAK": "Same broad domain, clearly under-qualified, or transferable-only.",
+    "NOT_A_FIT": "Different profession. No reasonable reading shortlists this."
+  },
+
+  "jobs": [
+    {
+      "id": "job-01-backend-engineer",
+      "file": "jobs/job-01-backend-engineer.json",
+      "title": "Senior Backend Engineer (Java / Spring Boot)",
+      "shape": "Deep single-stack technical. Java, Spring, PostgreSQL, correctness under concurrency."
+    },
+    {
+      "id": "job-02-ml-engineer",
+      "file": "jobs/job-02-ml-engineer.json",
+      "title": "Machine Learning Engineer (NLP / Retrieval)",
+      "shape": "Python and modelling. Overlaps job-01 on 'engineer' and almost nothing else, which is what makes the backend/ML confusions worth testing."
+    },
+    {
+      "id": "job-03-restaurant-manager",
+      "file": "jobs/job-03-restaurant-manager.json",
+      "title": "Restaurant General Manager",
+      "shape": "Non-technical. Shares no vocabulary with either engineering job, so every technical CV against it must come out NOT_A_FIT."
+    }
+  ],
+
+  "cvs": [
+    {
+      "file": "cvs/cv-01-rami-haddad.pdf",
+      "candidate": "Rami Haddad",
+      "format": "pdf",
+      "layout": "sectioned",
+      "primaryJob": "job-01-backend-engineer",
+      "bucket": "STRONG",
+      "expected": "STRONG",
+      "why": "Nine years Java, Spring Boot on PostgreSQL, Kafka via transactional outbox, owns production and on-call. Hits every required line and most of the nice-to-haves.",
+      "against": { "job-01-backend-engineer": "STRONG", "job-02-ml-engineer": "WEAK", "job-03-restaurant-manager": "NOT_A_FIT" }
+    },
+    {
+      "file": "cvs/cv-02-lina-doumit.docx",
+      "candidate": "Lina Doumit",
+      "format": "docx",
+      "layout": "sectioned, skills rendered as a real Word table",
+      "primaryJob": "job-01-backend-engineer",
+      "bucket": "STRONG",
+      "expected": "STRONG",
+      "why": "Seven years Spring Boot and PostgreSQL, Kafka with idempotent consumers, Kubernetes, explicit optimistic locking. Slightly less seniority than Rami, same substance.",
+      "against": { "job-01-backend-engineer": "STRONG", "job-02-ml-engineer": "NOT_A_FIT", "job-03-restaurant-manager": "NOT_A_FIT" }
+    },
+    {
+      "file": "cvs/cv-03-karim-mansour.pdf",
+      "candidate": "Karim Mansour",
+      "format": "pdf",
+      "layout": "sectioned",
+      "primaryJob": "job-02-ml-engineer",
+      "bucket": "STRONG",
+      "expected": "STRONG",
+      "why": "Six years production NLP, fine-tuned embeddings in PyTorch, built the eval harness and reports nDCG, pgvector with HNSW, serving and quantisation. Written to match the requirements list closely.",
+      "against": { "job-01-backend-engineer": "WEAK", "job-02-ml-engineer": "STRONG", "job-03-restaurant-manager": "NOT_A_FIT" }
+    },
+    {
+      "file": "cvs/cv-04-yara-khoury.txt",
+      "candidate": "Yara Khoury",
+      "format": "txt",
+      "layout": "prose, no section headers at all",
+      "primaryJob": "job-02-ml-engineer",
+      "bucket": "STRONG",
+      "expected": "STRONG",
+      "why": "Same substance as Karim with none of the structure. If this scores materially below cv-03, the grader is rewarding formatting rather than content, which is the specific failure this pair exists to catch.",
+      "against": { "job-01-backend-engineer": "WEAK", "job-02-ml-engineer": "STRONG", "job-03-restaurant-manager": "NOT_A_FIT" }
+    },
+    {
+      "file": "cvs/cv-05-georges-semaan.docx",
+      "candidate": "Georges Semaan",
+      "format": "docx",
+      "layout": "sectioned",
+      "primaryJob": "job-03-restaurant-manager",
+      "bucket": "STRONG",
+      "expected": "STRONG",
+      "why": "Seven years running full sites, named food and labour cost percentages, HACCP responsible person, EPOS rollout, team of 34. Every required line has a number attached.",
+      "against": { "job-01-backend-engineer": "NOT_A_FIT", "job-02-ml-engineer": "NOT_A_FIT", "job-03-restaurant-manager": "STRONG" }
+    },
+
+    {
+      "file": "cvs/cv-06-nour-aziz.pdf",
+      "candidate": "Nour Aziz",
+      "format": "pdf",
+      "layout": "prose, no section headers",
+      "primaryJob": "job-01-backend-engineer",
+      "bucket": "BORDERLINE",
+      "expected": "BORDERLINE",
+      "why": "Right stack and genuinely good work, but three years against a required five, and states plainly that there is no Kafka, no Kubernetes and nothing distributed. The gap is in the CV's own words.",
+      "against": { "job-01-backend-engineer": "BORDERLINE", "job-02-ml-engineer": "NOT_A_FIT", "job-03-restaurant-manager": "NOT_A_FIT" }
+    },
+    {
+      "file": "cvs/cv-07-elie-bou-chedid.pdf",
+      "candidate": "Elie Bou Chedid",
+      "format": "pdf",
+      "layout": "sectioned",
+      "primaryJob": "job-01-backend-engineer",
+      "bucket": "BORDERLINE",
+      "expected": "BORDERLINE",
+      "why": "Eight years of exactly the right engineering on the wrong runtime. Every non-language requirement is met and exceeded; 'production Java' is not. Also the fixture that proves redaction leaves '.NET Core' and 'ASP.NET' alone.",
+      "against": { "job-01-backend-engineer": "BORDERLINE", "job-02-ml-engineer": "NOT_A_FIT", "job-03-restaurant-manager": "NOT_A_FIT" }
+    },
+    {
+      "file": "cvs/cv-08-maya-chalhoub.docx",
+      "candidate": "Maya Chalhoub",
+      "format": "docx",
+      "layout": "sectioned, compact",
+      "primaryJob": "job-02-ml-engineer",
+      "bucket": "BORDERLINE",
+      "expected": "BORDERLINE",
+      "why": "Seven years production Python and strong data engineering, but her own 'Not yet' section rules out PyTorch, transformers and any real vector search. Tests whether adjacency to data work reads as ML capability.",
+      "against": { "job-01-backend-engineer": "WEAK", "job-02-ml-engineer": "BORDERLINE", "job-03-restaurant-manager": "NOT_A_FIT" }
+    },
+    {
+      "file": "cvs/cv-09-tarek-ghanem.txt",
+      "candidate": "Tarek Ghanem",
+      "format": "txt",
+      "layout": "sectioned",
+      "primaryJob": "job-02-ml-engineer",
+      "bucket": "BORDERLINE",
+      "expected": "BORDERLINE",
+      "why": "Has shipped embeddings and pgvector and fine-tuned a classifier, so the keywords are all present, but says outright he never measured retrieval quality and followed a tutorial. The keyword-versus-depth case.",
+      "against": { "job-01-backend-engineer": "WEAK", "job-02-ml-engineer": "BORDERLINE", "job-03-restaurant-manager": "NOT_A_FIT" }
+    },
+    {
+      "file": "cvs/cv-10-sandra-ibrahim.pdf",
+      "candidate": "Sandra Ibrahim",
+      "format": "pdf",
+      "layout": "prose, no section headers, monospaced",
+      "primaryJob": "job-03-restaurant-manager",
+      "bucket": "BORDERLINE",
+      "expected": "BORDERLINE",
+      "why": "Four years supervising, writes the rota, trains staff, runs the floor. Explicitly has never owned a P&L, never held a food cost target and has never been the responsible person at inspection. Two required lines missing, everything else present.",
+      "against": { "job-01-backend-engineer": "NOT_A_FIT", "job-02-ml-engineer": "NOT_A_FIT", "job-03-restaurant-manager": "BORDERLINE" }
+    },
+    {
+      "file": "cvs/cv-11-hadi-nasrallah.docx",
+      "candidate": "Hadi Nasrallah",
+      "format": "docx",
+      "layout": "sectioned, serif",
+      "primaryJob": "job-03-restaurant-manager",
+      "bucket": "BORDERLINE",
+      "expected": "BORDERLINE",
+      "why": "Nine years hospitality, real budget ownership, 26 direct reports, PMS rollout. But it is rooms division, not food and beverage: no restaurant P&L, no food cost, no HACCP responsibility. Right industry, wrong half of it.",
+      "against": { "job-01-backend-engineer": "NOT_A_FIT", "job-02-ml-engineer": "NOT_A_FIT", "job-03-restaurant-manager": "BORDERLINE" }
+    },
+    {
+      "file": "cvs/cv-12-joelle-feghali.txt",
+      "candidate": "Joelle Feghali",
+      "format": "txt",
+      "layout": "prose, no section headers",
+      "primaryJob": "job-01-backend-engineer",
+      "bucket": "BORDERLINE",
+      "expected": "BORDERLINE",
+      "why": "Six years Java and excellent SQL, but Java 8 on Spring 4 and WebLogic, with Spring Boot only as a home project. Meets the years requirement and misses the stack currency behind it.",
+      "against": { "job-01-backend-engineer": "BORDERLINE", "job-02-ml-engineer": "NOT_A_FIT", "job-03-restaurant-manager": "NOT_A_FIT" }
+    },
+    {
+      "file": "cvs/cv-13-ziad-abou-jaoude.pdf",
+      "candidate": "Ziad Abou Jaoude",
+      "format": "pdf",
+      "layout": "sectioned",
+      "primaryJob": "job-02-ml-engineer",
+      "bucket": "BORDERLINE",
+      "expected": "BORDERLINE",
+      "why": "Owns serving, quantisation, a 30M vector index and the whole MLOps nice-to-have list, then states he has never designed a training run, chosen a loss function or built an eval set. Strong on the optional requirements, absent on the required ones.",
+      "against": { "job-01-backend-engineer": "WEAK", "job-02-ml-engineer": "BORDERLINE", "job-03-restaurant-manager": "NOT_A_FIT" }
+    },
+
+    {
+      "file": "cvs/cv-14-rita-sfeir.pdf",
+      "candidate": "Rita Sfeir",
+      "format": "pdf",
+      "layout": "sectioned, serif",
+      "primaryJob": "job-01-backend-engineer",
+      "bucket": "WEAK",
+      "expected": "NOT_A_FIT",
+      "why": "Graphic designer. 'Basic HTML and CSS' is the only technical token in the document and must not be read as engineering capability.",
+      "against": { "job-01-backend-engineer": "NOT_A_FIT", "job-02-ml-engineer": "NOT_A_FIT", "job-03-restaurant-manager": "NOT_A_FIT" }
+    },
+    {
+      "file": "cvs/cv-15-ahmad-zeineddine.txt",
+      "candidate": "Ahmad Zeineddine",
+      "format": "txt",
+      "layout": "sectioned",
+      "primaryJob": "job-01-backend-engineer",
+      "bucket": "WEAK",
+      "expected": "WEAK",
+      "why": "Right domain, no professional experience: Spring Boot appears once, in a final year project. Zero of five required years. Weak, not NOT_A_FIT, because the trajectory is correct.",
+      "against": { "job-01-backend-engineer": "WEAK", "job-02-ml-engineer": "WEAK", "job-03-restaurant-manager": "NOT_A_FIT" }
+    },
+    {
+      "file": "cvs/cv-16-carla-mouawad.docx",
+      "candidate": "Carla Mouawad",
+      "format": "docx",
+      "layout": "prose, no section headers, compact",
+      "primaryJob": "job-02-ml-engineer",
+      "bucket": "WEAK",
+      "expected": "NOT_A_FIT",
+      "why": "Marketing coordinator. Mentions data, reporting, analytics and light scripting, which is the vocabulary most likely to be mistaken for technical work. It is not.",
+      "against": { "job-01-backend-engineer": "NOT_A_FIT", "job-02-ml-engineer": "NOT_A_FIT", "job-03-restaurant-manager": "NOT_A_FIT" }
+    },
+    {
+      "file": "cvs/cv-17-fadi-rizk.pdf",
+      "candidate": "Fadi Rizk",
+      "format": "pdf",
+      "layout": "sectioned",
+      "primaryJob": "job-02-ml-engineer",
+      "bucket": "WEAK",
+      "expected": "NOT_A_FIT",
+      "why": "Structural engineer. Says 'engineer' throughout and mentions Python once, for spreadsheet automation. The title-collision case.",
+      "against": { "job-01-backend-engineer": "NOT_A_FIT", "job-02-ml-engineer": "NOT_A_FIT", "job-03-restaurant-manager": "NOT_A_FIT" }
+    },
+    {
+      "file": "cvs/cv-18-nadine-saad.pdf",
+      "candidate": "Nadine Saad",
+      "format": "pdf",
+      "layout": "sectioned, serif",
+      "primaryJob": "job-03-restaurant-manager",
+      "bucket": "WEAK",
+      "expected": "NOT_A_FIT",
+      "why": "The most qualified engineer in the corpus, applied to the restaurant job. Scores STRONG against job-01 and NOT_A_FIT against job-03, so any grader that rates the CV rather than the pair will get exactly one of those two wrong. This is the single most useful fixture here.",
+      "against": { "job-01-backend-engineer": "STRONG", "job-02-ml-engineer": "WEAK", "job-03-restaurant-manager": "NOT_A_FIT" }
+    },
+    {
+      "file": "cvs/cv-19-omar-chidiac.txt",
+      "candidate": "Omar Chidiac",
+      "format": "txt",
+      "layout": "prose, no section headers",
+      "primaryJob": "job-03-restaurant-manager",
+      "bucket": "WEAK",
+      "expected": "WEAK",
+      "why": "Right industry, one year in, has never written a rota or hired anyone and says so. Against a role requiring five years and site ownership this is not close, but it is not a different profession either.",
+      "against": { "job-01-backend-engineer": "NOT_A_FIT", "job-02-ml-engineer": "NOT_A_FIT", "job-03-restaurant-manager": "WEAK" }
+    },
+    {
+      "file": "cvs/cv-20-perla-haddad.docx",
+      "candidate": "Perla Haddad",
+      "format": "docx",
+      "layout": "prose, no section headers, serif",
+      "primaryJob": "job-03-restaurant-manager",
+      "bucket": "WEAK",
+      "expected": "WEAK",
+      "why": "Pharmacy, not hospitality, but the transferable surface is unusually large: stock rotation and expiry across 4,000 lines, cold chain compliance, supplier ordering, difficult customers, training juniors. No P&L and no food service. Tests whether transferable skill is credited without being overcredited.",
+      "against": { "job-01-backend-engineer": "NOT_A_FIT", "job-02-ml-engineer": "NOT_A_FIT", "job-03-restaurant-manager": "WEAK" }
+    }
+  ],
+
+  "adversarial": [
+    {
+      "file": "adversarial/adv-01-scanned-no-text-layer.pdf",
+      "what": "A CV that exists only as a JPEG inside a PDF. No text operators on the page.",
+      "expectedStatus": "FAILED",
+      "expectedBehaviour": "PDFBox returns 0 visible characters, which is below cvevaluator.extraction.minimum-text-length, so the application fails it with the no-text-layer message. Per CLAUDE.md there is no OCR and this failing cleanly is the designed behaviour, not a bug.",
+      "measured": { "pages": 1, "extractedChars": 2, "visibleChars": 0 }
+    },
+    {
+      "file": "adversarial/adv-02-forty-page-cv.pdf",
+      "what": "A 40-page academic CV: 700 publications, 200 talks, teaching and supervision lists.",
+      "expectedStatus": "COMPLETED",
+      "expectedBehaviour": "Extracts fine at roughly 130,000 characters. This is the fixture that will break the prompt budget, not the extractor: 130k characters is far past any sensible context slice, so it forces the chunking and token-limit decision to be made deliberately rather than discovered in the demo.",
+      "measured": { "pages": 40, "extractedChars": 130677, "visibleChars": 107184 }
+    },
+    {
+      "file": "adversarial/adv-03-arabic-rtl-cv.pdf",
+      "what": "An Arabic CV, laid out right to left with an embedded TrueType font.",
+      "expectedStatus": "COMPLETED",
+      "expectedBehaviour": "Extracts to the exact logical-order Arabic of the source, verified by substring match. Rubric is English-only by decision, so the assessment quality is out of scope; what is in scope is that the text survives extraction, redaction, the database column and the prompt without corruption.",
+      "measured": { "pages": 1, "extractedChars": 1287, "visibleChars": 1050 }
+    },
+    {
+      "file": "adversarial/adv-04-restaurant-menu.pdf",
+      "what": "A valid, well-formed PDF that is a mezze menu, not a CV.",
+      "expectedStatus": "COMPLETED",
+      "expectedBehaviour": "Nothing in extraction or validation can reject this: it is a real PDF with real text. It is deliberately topically adjacent to job-03, so the LLM must decide that a document with no candidate, no employment history and no dates is not a CV. This is the only adversarial file whose defence lives entirely in the prompt.",
+      "measured": { "pages": 2, "extractedChars": 2143, "visibleChars": 1661 }
+    },
+    {
+      "file": "adversarial/adv-05-zero-bytes.pdf",
+      "what": "A zero-byte file with a .pdf extension.",
+      "expectedStatus": "REJECTED",
+      "expectedBehaviour": "FileSignatureValidator throws InvalidUploadException('Uploaded file is empty') on the empty header, before anything is written to disk. Note that multipart handling may reject it earlier still; either way the client gets a 400 through GlobalExceptionHandler, never a stack trace.",
+      "measured": { "bytes": 0 }
+    },
+    {
+      "file": "adversarial/adv-06-executable-renamed.pdf",
+      "what": "A Windows PE executable header wearing a .pdf extension. Starts 4D 5A, not %PDF-.",
+      "expectedStatus": "REJECTED",
+      "expectedBehaviour": "FileSignatureValidator rejects on the magic bytes with 'File content does not match its .pdf extension'. The first bytes are logged and not echoed to the client, so the rules cannot be probed from outside. Deliberately inert: well-formed DOS and PE headers, zero sections, no entry point, nothing that could execute.",
+      "measured": { "bytes": 392 }
+    }
+  ]
+}

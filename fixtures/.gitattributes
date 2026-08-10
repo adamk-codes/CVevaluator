@@ -1,0 +1,7 @@
+# Generated fixtures are byte-for-byte artefacts: VerifyFixtures reports exact
+# character counts and manifest.json records them. Without -text, git rewrites
+# the .txt CVs to CRLF on a Windows checkout, every count shifts, and the
+# corpus no longer matches its own documentation. The sources in content/ are
+# ordinary text and are left to normal handling.
+cvs/** -text
+adversarial/** -text

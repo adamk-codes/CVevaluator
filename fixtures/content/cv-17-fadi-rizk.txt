@@ -1,0 +1,37 @@
+# Fadi Rizk
+@ Structural Engineer, MEng
+@ fadi.rizk@example.com | 03 806 442 | Beirut, Lebanon
+
+## SUMMARY
+
+Structural engineer with ten years on reinforced concrete and steel buildings in Lebanon and the Gulf. Order of Engineers registered.
+
+## EXPERIENCE
+
+> Senior Structural Engineer, Batimat Consulting — Beirut
+> 01/2019 - Present
+
+- Lead structural designer on nine buildings between six and twenty-two storeys, including a 22-storey residential tower in Achrafieh.
+- Perform seismic analysis to ACI 318 and Eurocode 8, and produce the design calculations that go to the permitting authority.
+- Model structures in ETABS and SAFE; check foundation design against geotechnical reports and coordinate with the geotechnical consultant.
+- Review shop drawings and answer contractor RFIs during construction; site visits twice weekly during structural works.
+- Supervise two junior engineers and check their calculations before issue.
+
+> Structural Engineer, Gulf Design Bureau — Dubai
+> 03/2015 - 12/2018
+
+- Structural design for commercial and mixed-use projects, working to Dubai Municipality requirements.
+- Steel connection design and detailing for two warehouse projects totalling 14,000 square metres.
+
+## EDUCATION
+
+> MEng Structural Engineering, Ecole Superieure d'Ingenieurs de Beyrouth, 2015
+> BE Civil Engineering, Ecole Superieure d'Ingenieurs de Beyrouth, 2013
+
+## SKILLS
+
+ETABS, SAFE, SAP2000, AutoCAD, Revit Structure, Robot Structural Analysis, ACI 318, Eurocode 2 and 8, MathCAD, and enough Python to automate repetitive load-combination spreadsheets.
+
+## LANGUAGES
+
+Arabic (native), French (fluent), English (fluent)

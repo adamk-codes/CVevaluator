@@ -1,0 +1,40 @@
+# Nadine Saad
+@ Staff Software Engineer, Distributed Systems
+@ nadine.saad@example.com | +961 3 771 902 | linkedin.com/in/nadinesaad
+
+## SUMMARY
+
+Eleven years on the JVM, the last five as a staff engineer owning the storage and consistency layer of a multi-tenant SaaS platform. I am the person the team sends the concurrency bug to.
+
+## EXPERIENCE
+
+> Staff Software Engineer, Anchorpoint Cloud — Remote
+> 02/2020 - Present
+
+- Technical owner of the metadata service: Java 21, Spring Boot, PostgreSQL, 14,000 requests per second at peak across three regions.
+- Designed the multi-tenant sharding scheme and the online resharding process that moves a tenant between shards with no write downtime.
+- Eliminated a phantom-read class of bug by moving four hot paths to SERIALIZABLE with explicit retry, after demonstrating the failure with a Jepsen-style test harness I wrote.
+- Own the Kafka topology: 31 topics, exactly-once semantics on the billing path via the transactional outbox pattern.
+- Reduced steady-state heap 35 percent and eliminated a 4-second full GC pause by switching to ZGC and fixing two unbounded caches found with JFR.
+- Write the design documents that go to the architecture review, and I chair that review every other week.
+- Mentor four engineers formally and run the internal Spring Boot training.
+
+> Senior Software Engineer, Tyros Data Systems — Beirut
+> 08/2014 - 01/2020
+
+- Built the ingestion pipeline handling 2 billion events a day in Java, on Kafka and Cassandra.
+- Led the migration from a single PostgreSQL instance to a partitioned, read-replica topology.
+- Introduced integration testing with Testcontainers across nine services.
+
+## EDUCATION
+
+> MSc Computer Science, EPFL Lausanne, 2014
+> BE Computer and Communications Engineering, American University of Beirut, 2012
+
+## SKILLS
+
+Java, Spring Boot, Spring Data JPA, Hibernate, PostgreSQL, Kafka, Cassandra, Kubernetes, ZGC and JVM tuning, JFR, OpenTelemetry, JUnit 5, Testcontainers, Gradle.
+
+## SPEAKING
+
+Spoke at a JVM meetup in 2023 on transactional outbox patterns, and at an internal conference on serializable isolation in PostgreSQL.

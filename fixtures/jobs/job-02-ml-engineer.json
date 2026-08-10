@@ -1,0 +1,6 @@
+{
+  "title": "Machine Learning Engineer (NLP / Retrieval)",
+  "seniority": "Mid-Senior",
+  "description": "You will build the retrieval and ranking layer behind our document understanding product: chunking and embedding customer documents, serving nearest-neighbour search over tens of millions of vectors, and fine-tuning smaller models where a general-purpose one is too slow or too expensive. This is an engineering role with modelling in it, not a research role. Work is judged on offline evaluation numbers and on latency at the ninety-ninth percentile, and you are expected to build the evaluation harness that produces those numbers rather than inherit one.",
+  "requirements": "Required: 3+ years of Python in production, not only in notebooks. Hands-on training and fine-tuning with PyTorch or an equivalent framework. Working knowledge of transformer architectures, tokenisation and embedding models. Experience building an offline evaluation set and reporting precision, recall and nDCG against it. Comfortable with vector search, whether FAISS, pgvector, or a managed vector database. Nice to have: retrieval-augmented generation systems in production, model serving and quantisation, MLOps tooling such as MLflow or Weights and Biases, Kubernetes, and published work or open-source contributions."
+}

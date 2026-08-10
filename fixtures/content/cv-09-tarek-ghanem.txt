@@ -1,0 +1,33 @@
+# Tarek Ghanem
+@ Full Stack Developer
+@ tarek.ghanem@example.com | 03 774 265 | Tripoli, Lebanon
+
+## EXPERIENCE
+
+> Full Stack Developer, Saida Web Studio
+> 09/2020 - Present
+
+- Build and maintain eight Django applications for clients in retail and education, from database schema to React front end.
+- Wrote a document search feature for a law firm client using OpenAI embeddings and pgvector, indexing about 40,000 documents. It works well enough that they still use it, but I never measured retrieval quality beyond clicking around, and I would not know how to prove it is good.
+- Built a REST API in Django REST Framework serving a mobile app with 30,000 monthly users.
+- Manage deployment on DigitalOcean droplets with Docker Compose and nginx.
+- Fine-tuned a sentiment classifier for Arabic tweets on a client project using Hugging Face and a pre-trained AraBERT checkpoint. I followed a tutorial closely and got 0.79 accuracy; I could not explain the tokeniser behaviour if pressed.
+
+> Junior Developer, Nadi Tech
+> 01/2019 - 08/2020
+
+- Built internal tools in Python and Flask.
+- Wrote SQL reports against MySQL for the operations team.
+
+## SIDE PROJECTS
+
+- A Telegram bot that answers questions over a personal notes corpus using retrieval-augmented generation, roughly 300 lines of Python. Built to learn, not in production.
+- Completed the fast.ai Practical Deep Learning course, 2023, and the Hugging Face NLP course.
+
+## EDUCATION
+
+> BS Computer Science, Lebanese International University, 2018
+
+## SKILLS
+
+Python, Django, Flask, JavaScript, React, PostgreSQL, MySQL, Docker, pgvector, Hugging Face Transformers, Git.

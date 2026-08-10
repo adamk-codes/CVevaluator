@@ -1,0 +1,16 @@
+# Joelle Feghali
+@ joelle.feghali@example.com | 01 384 226 | Hazmieh, Lebanon
+
+Java developer, six years, currently at National Registry Systems in Hazmieh where I have been since I graduated.
+
+We maintain a case management system for a government client. It is a Java 8 application on Spring 4 running on WebLogic, with JSP pages for the front end and about 340,000 lines in one deployable. I know it extremely well. Over six years I have written the document generation module, the audit trail, the search screens and most of the batch jobs that run overnight. When something breaks in production at two in the morning I am usually the person who finds it.
+
+The database is Oracle 12c and I am genuinely good at it. I write the stored procedures, I read execution plans, and I have taken several reports from minutes to seconds by rewriting the SQL and adding the right index. Last year I rebuilt the nightly reconciliation job, which had grown to run for six hours and was starting to overlap the working day, into a partitioned parallel job that finishes in 40 minutes.
+
+I have wanted to move to a modern stack for a while and the honest position is that I have not been able to at work. We are still on Java 8 because the client's WebLogic version will not take anything newer, and there is no appetite to change it. I have done Spring Boot at home: I built a small REST service with Spring Boot 3 and PostgreSQL to learn JPA properly, and I have worked through a Kubernetes course, but I have never deployed a container to production. No Kafka. No cloud. Our deployment is a WAR file and a change request.
+
+What I would bring is six years of not breaking a system that people depend on, real SQL and relational modelling ability, and the debugging habits that come from owning production. What I would need is time on the modern stack.
+
+BE in Computer Engineering, Universite Libanaise, Faculty of Engineering Branch II, 2019.
+
+Java 8, Spring 4, JSP, Servlets, JAX-RS, Oracle 12c, PL/SQL, WebLogic, Maven, SVN and Git, JUnit 4 and some JUnit 5.

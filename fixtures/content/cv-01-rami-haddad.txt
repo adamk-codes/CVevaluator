@@ -1,0 +1,42 @@
+# Rami Haddad
+@ Senior Software Engineer | Beirut, Lebanon
+@ rami.haddad@example.com | 03 447 812 | linkedin.com/in/ramihaddad
+
+## SUMMARY
+
+Backend engineer with nine years building transactional services on the JVM. Most of that time has been spent on systems where a duplicated write costs money, so I care about idempotency, transaction boundaries and observability more than about framework fashion.
+
+## EXPERIENCE
+
+> Principal Backend Engineer, Cedar Payments — Beirut
+> 03/2021 - Present
+
+- Own the settlement service that moves roughly 180,000 transactions a day between eleven partner banks, written in Java 21 on Spring Boot 3.
+- Redesigned the ledger schema in PostgreSQL around an append-only entries table with a partial unique index on the idempotency key, which removed a class of double-posting incidents that had been happening about twice a quarter.
+- Cut p99 latency on the balance endpoint from 840ms to 110ms by replacing a correlated subquery with a lateral join and adding a covering index; verified with EXPLAIN ANALYZE before and after.
+- Introduced Kafka as the transport between settlement and reconciliation, using a transactional outbox so a message is never published for a transaction that rolled back.
+- Run the service in production myself, including the on-call rotation. Added distributed tracing with OpenTelemetry after an incident where we could not tell which of four hops was slow.
+- Mentor two mid-level engineers and run the weekly design review.
+
+> Senior Java Developer, Levant Software House — Beirut
+> 06/2017 - 02/2021
+
+- Built and versioned REST APIs consumed by three external client teams; introduced a deprecation policy after a breaking change took down a partner integration for a morning.
+- Migrated a monolith from Spring 4 to Spring Boot 2 in eleven increments, each independently deployable, with no scheduled downtime.
+- Wrote the integration test suite against Testcontainers-backed PostgreSQL, which replaced an H2 setup that had been hiding two dialect-specific bugs.
+- Tuned JVM heap and garbage collection on the reporting service, reducing full GC pauses from several seconds to under 200ms.
+
+> Java Developer, Horizon Systems — Beirut
+> 09/2015 - 05/2017
+
+- Implemented batch jobs in Spring Batch for nightly interest accrual across 400,000 accounts.
+- Maintained Oracle stored procedures and led their gradual replacement with application-level logic.
+
+## EDUCATION
+
+> BE in Computer and Communications Engineering, American University of Beirut
+> 2011 - 2015
+
+## SKILLS
+
+Java 8 through 21, Spring Boot, Spring Data JPA, Hibernate, PostgreSQL, Kafka, Kubernetes, Docker, OpenTelemetry, JUnit 5, Testcontainers, Maven, Git.

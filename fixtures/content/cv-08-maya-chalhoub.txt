@@ -1,0 +1,37 @@
+# Maya Chalhoub
+@ Data Engineer
+@ maya.chalhoub@example.com | 78 405 116 | Beirut, Lebanon
+
+## EXPERIENCE
+
+> Senior Data Engineer, Cedar Retail Group
+> 06/2020 - Present
+
+- Own the batch and streaming pipelines that feed the group's analytics warehouse: 90 Airflow DAGs, roughly 4 terabytes processed daily.
+- Built the customer event pipeline in Spark on 60 million rows a day, replacing a nightly job that took nine hours with an hourly incremental that takes eleven minutes.
+- Model and maintain the dimensional warehouse in Snowflake, including the slowly changing dimension logic for the product hierarchy.
+- Wrote the data quality framework the team uses: expectations on freshness, null rate and referential integrity, failing the DAG rather than the dashboard.
+- Trained and deployed a demand forecasting model with scikit-learn and gradient boosting for 1,200 SKUs, cutting stockouts 18 percent. This is the extent of my modelling work and it is classical, not deep learning.
+- Set up the feature store the data science team reads from, and the backfill tooling around it.
+
+> Data Engineer, Blue Orchid Analytics
+> 03/2018 - 05/2020
+
+- Built ETL in Python and SQL from twelve source systems into Redshift.
+- Wrote the ingestion connectors for three partner APIs, with retry and watermark handling.
+
+## EDUCATION
+
+> BSc Statistics, Lebanese American University, 2017
+
+## SKILLS
+
+- Python (7 years, production), SQL (expert), Scala (basic)
+- Spark, Airflow, dbt, Kafka Connect
+- Snowflake, Redshift, PostgreSQL
+- scikit-learn, pandas, NumPy
+- Docker, Terraform, AWS
+
+## NOT YET
+
+No PyTorch or TensorFlow experience. I have read about transformers and embeddings but have not trained one. I have used a vector database once, in a weekend prototype with pgvector.

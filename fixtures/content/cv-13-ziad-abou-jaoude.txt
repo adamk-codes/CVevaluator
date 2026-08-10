@@ -1,0 +1,37 @@
+# Ziad Abou Jaoude
+@ MLOps / Platform Engineer
+@ ziad.aboujaoude@example.com | 76 119 508 | linkedin.com/in/ziadaj
+
+## SUMMARY
+
+Platform engineer who has spent five years making other people's models run. I own serving, scaling and observability for ML workloads. I am not the person who trains the model.
+
+## EXPERIENCE
+
+> MLOps Engineer, Argan AI — Beirut and Remote
+> 11/2021 - Present
+
+- Own the model serving platform: 34 models in production on Kubernetes behind Triton Inference Server and KServe, roughly 900 requests per second at peak.
+- Cut GPU spend 44 percent by introducing dynamic batching and moving eight models to int8 via TensorRT, holding p99 within the 250 millisecond SLO.
+- Built the deployment pipeline that takes a model from an MLflow registry entry to a canary rollout with automatic rollback on latency or error-rate regression.
+- Run the feature and embedding infrastructure, including a 30 million vector index in Milvus and the reindexing job that rebuilds it without downtime.
+- Wrote the model monitoring stack: input drift detection, prediction distribution alerts, and per-model latency dashboards in Grafana.
+- Set up the GPU node pools, autoscaling and spot instance handling on EKS.
+
+> DevOps Engineer, Halcyon Systems — Beirut
+> 07/2019 - 10/2021
+
+- Kubernetes, Terraform and CI/CD for twelve microservices.
+- Built the observability stack: Prometheus, Grafana, Loki, and on-call runbooks.
+
+## EDUCATION
+
+> BE Computer and Communications Engineering, American University of Beirut, 2019
+
+## SKILLS
+
+Python, Go, Kubernetes, Docker, Terraform, KServe, Triton, TensorRT, ONNX, MLflow, Milvus, pgvector, Prometheus, Grafana, AWS, EKS.
+
+## HONEST SCOPE
+
+I write Python for tooling and pipelines, not for modelling. I have run PyTorch training jobs on the cluster and debugged them when they OOM, but I have never designed a training run or chosen a loss function. I have never built an offline evaluation set; I consume the metrics the DS team produces. Transformers I understand operationally, not mathematically.

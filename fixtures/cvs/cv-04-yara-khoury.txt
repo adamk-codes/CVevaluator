@@ -1,0 +1,17 @@
+Yara Khoury
+yara.khoury@example.com — 03 662 190 — Beirut
+
+I am a machine learning engineer, currently at Solstice Labs, where for the past four years I have worked on the search and ranking stack behind a legal research product. When I joined, search was a Postgres full-text query with a hand-tuned weight on the title field. It now serves dense retrieval over 61 million passages with a cross-encoder reranker on top, and I built most of the path between those two states.
+
+The embedding work is the part I know best. I fine-tuned a multilingual E5 model on 240,000 mined hard-negative pairs using PyTorch and sentence-transformers, which lifted recall@50 from 0.72 to 0.86 on our held-out set. Hard negative mining mattered more than the loss function did, which surprised me at the time and is now the first thing I check when someone reports that fine-tuning did nothing. I also own the ANN index configuration, currently HNSW in FAISS with a sharded layout across four nodes, and the quantisation work that let us hold the index in memory after it outgrew a single machine.
+
+I built our evaluation harness in my first six months and consider it the most useful thing I have made. It runs 2,800 annotated queries against any candidate configuration and reports nDCG@10, MRR and recall at three cut-offs, with a paired bootstrap test so we stop shipping changes that are inside the noise. It runs in CI on every model or index change and takes eleven minutes.
+
+Before Solstice I spent two years at Cedrus Research as a research engineer, working on Arabic named entity recognition. We published a paper at a workshop on low-resource NER and released the annotated dataset, which is still the thing people email me about. I wrote the training code in PyTorch and the annotation tooling in Python and TypeScript.
+
+On the serving side I am comfortable enough: our models run behind a Python service on Kubernetes, I have done the ONNX export and int8 quantisation work, and I set up the MLflow tracking server the team uses. I would not call myself an infrastructure engineer, but I have never needed someone else to deploy my model for me.
+
+I hold an MSc in Machine Learning from the University of Edinburgh, 2019, and a BE in Computer Engineering from the Lebanese University, 2018. I read and write Arabic, English and French.
+
+Python, PyTorch, sentence-transformers, Hugging Face, FAISS, pgvector, ONNX, MLflow, Weights and Biases, Kubernetes, Docker, PostgreSQL, SQL, TypeScript.
+

@@ -1,0 +1,39 @@
+# Karim Mansour
+@ Machine Learning Engineer
+@ karim.mansour@example.com | 76 883 021 | linkedin.com/in/karimmansour
+
+## SUMMARY
+
+Six years building NLP systems that run in production rather than in notebooks. My work is usually the unglamorous half: the evaluation harness, the chunking strategy, the reason p99 is 400ms instead of four seconds.
+
+## EXPERIENCE
+
+> Machine Learning Engineer, Meridian Document AI — Remote
+> 04/2022 - Present
+
+- Own the retrieval layer for a contract analysis product indexing 42 million document chunks in pgvector, using HNSW indexes with m=16 and ef_construction=64.
+- Built the offline evaluation set of 3,100 labelled query-document pairs and the harness that reports precision@5, recall@20 and nDCG@10 on every model change. Before it existed, retrieval changes were argued from anecdotes.
+- Fine-tuned a bge-base embedding model on in-domain contract language with a contrastive objective in PyTorch, improving nDCG@10 from 0.61 to 0.74 against that set.
+- Replaced fixed-size chunking with a layout-aware splitter that respects clause boundaries; recall@20 rose 9 points with no change to the model.
+- Cut serving cost 62 percent by quantising the reranker to int8 with ONNX Runtime and batching requests, holding p99 latency under 380ms.
+- Built the RAG pipeline that grounds every generated answer in a retrieved span, including the span-verification step that rejects an answer whose quote is not present in the source.
+
+> Data Scientist, Nour Analytics — Beirut
+> 08/2019 - 03/2022
+
+- Trained text classification models for Arabic and English support tickets, reaching macro F1 of 0.88 across 14 intent classes.
+- Moved the team off ad hoc scripts onto MLflow for experiment tracking and model registry.
+- Served models behind a FastAPI service on Kubernetes with canary rollout by traffic percentage.
+
+## EDUCATION
+
+> MSc Data Science, Ecole Polytechnique, 2019
+> BSc Computer Science, Lebanese American University, 2017
+
+## SKILLS
+
+Python, PyTorch, Hugging Face Transformers, sentence-transformers, ONNX Runtime, FAISS, pgvector, MLflow, FastAPI, Docker, Kubernetes, SQL, NumPy, pandas.
+
+## OPEN SOURCE
+
+Maintainer of a small library for evaluating retrieval pipelines; roughly 700 stars.

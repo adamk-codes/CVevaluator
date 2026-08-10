@@ -1,0 +1,46 @@
+# Ahmad Zeineddine
+@ Computer Science Graduate
+@ ahmad.zeineddine@example.com | 81 447 209 | Saida, Lebanon
+
+## OBJECTIVE
+
+Graduate seeking a first role as a backend developer.
+
+## EDUCATION
+
+> BS Computer Science, Lebanese University, Faculty of Sciences — Saida
+> 10/2021 - 07/2025, GPA 3.4 / 4.0
+
+- Relevant coursework: Data Structures, Algorithms, Database Systems, Operating Systems, Software Engineering, Web Development.
+
+## ACADEMIC PROJECTS
+
+> Final Year Project: Library Management System
+
+- Built a web application with Spring Boot and MySQL for borrowing and returning books, with a Thymeleaf front end.
+- Implemented user roles, a search page and an overdue-fines calculation.
+- Worked in a team of three over one semester. Graded 17/20.
+
+> Database Course Project
+
+- Designed a normalised schema for a hospital appointments system and wrote the reporting queries in SQL.
+
+> Algorithms Assignment Portfolio
+
+- Implemented sorting, graph traversal and dynamic programming exercises in Java.
+
+## INTERNSHIP
+
+> Intern, Saida Municipality IT Department
+> 07/2024 - 09/2024
+
+- Six weeks. Helped migrate spreadsheets into an Access database and wrote a small data-entry form.
+- Shadowed the network administrator; no software development work.
+
+## SKILLS
+
+Java (coursework and final year project), Spring Boot (final year project only), MySQL, SQL, HTML, CSS, basic JavaScript, Git.
+
+## LANGUAGES
+
+Arabic (native), English (good), French (basic)

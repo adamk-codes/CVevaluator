@@ -1,0 +1,26 @@
+# Walid Barakat
+@ Backend Developer
+@ walid.barakat@example.com | 03 229 106 | Beirut, Lebanon
+
+## EXPERIENCE
+
+> Backend Developer, Sidon Software — Beirut
+> 2020 - Present
+
+- Build REST services in Java and Spring Boot for a logistics client.
+- Maintain the PostgreSQL schema and write the reporting queries.
+- Added integration tests to the order module and brought coverage to 70 percent.
+
+> Junior Developer, Tyre Tech Solutions
+> 2018 - 2020
+
+- Maintained a PHP application and migrated two modules to Java.
+- Wrote SQL reports for the operations team.
+
+## EDUCATION
+
+> BS Computer Science, Lebanese University, 2018
+
+## SKILLS
+
+Java, Spring Boot, PostgreSQL, Docker, Git, JUnit.

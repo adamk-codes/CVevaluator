@@ -1,0 +1,6 @@
+{
+  "title": "Senior Backend Engineer (Java / Spring Boot)",
+  "seniority": "Senior",
+  "description": "We are building the transaction core of a regional payments platform. You will own services that settle money movement between banks, which means correctness, idempotency and observability matter more here than feature velocity. The team is six engineers; there is no separate ops team, so whoever writes a service also runs it. Expect to spend real time on schema design, on failure modes that only appear under concurrency, and on explaining your reasoning in design review. The stack is Java 21 and Spring Boot on PostgreSQL, deployed to Kubernetes, with Kafka between services.",
+  "requirements": "Required: 5+ years writing production backend services in Java. Deep Spring Boot experience, including dependency injection, transaction boundaries and Spring Data JPA. Strong relational modelling and SQL on PostgreSQL or a comparable engine, including indexing and query plans. Practical experience designing and versioning REST APIs consumed by other teams. Comfortable writing tests at unit and integration level. Nice to have: Kafka or another log-based message broker, Kubernetes, distributed tracing, experience with financial or otherwise correctness-critical systems, and exposure to JVM performance tuning."
+}

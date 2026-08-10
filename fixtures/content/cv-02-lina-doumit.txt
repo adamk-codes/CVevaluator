@@ -1,0 +1,38 @@
+# Lina Doumit
+@ Backend Engineer
+@ lina.doumit@example.com | +961 71 209 334 | Jounieh, Lebanon
+
+## PROFESSIONAL EXPERIENCE
+
+> Backend Engineer, Phoenicia Logistics Tech
+> January 2020 - Present
+
+- Design and run six Spring Boot services that track shipments for a fleet of 2,300 vehicles, deployed on Kubernetes across two regions.
+- Modelled the shipment domain in PostgreSQL with explicit optimistic locking; the version column ended a long-running bug where two dispatchers editing the same consignment silently overwrote each other.
+- Built the event backbone on Kafka with 14 topics and a schema registry, and wrote the consumer idempotency layer that made redelivery safe.
+- Reduced database load 40 percent by moving from EAGER to LAZY associations and adding entity graphs at the query level, after profiling showed a single endpoint issuing 312 queries per request.
+- Author the OpenAPI contract for every service and gate merges on a contract diff check.
+- Ran the incident review after a partial outage caused by connection pool exhaustion, and set the HikariCP sizing rules the team still uses.
+
+> Java Developer, Beirut Digital Bank
+> 07/2018 - 12/2019
+
+- Wrote the account opening flow as a Spring Boot service backed by PostgreSQL, handling 900 applications a day at launch.
+- Added integration tests with Testcontainers and raised branch coverage on the core module from 34 percent to 81 percent.
+- Participated in the migration from a shared database to per-service schemas.
+
+## EDUCATION
+
+> MSc Computer Science, Universite Saint-Joseph de Beyrouth, 2018
+> BSc Computer Science, Universite Saint-Joseph de Beyrouth, 2016
+
+## TECHNICAL SKILLS
+
+- Languages: Java, SQL, some Kotlin
+- Frameworks: Spring Boot, Spring Data JPA, Hibernate, JUnit 5, Mockito
+- Data: PostgreSQL, Redis, Kafka
+- Platform: Kubernetes, Docker, GitHub Actions, Grafana, Prometheus
+
+## LANGUAGES
+
+Arabic (native), English (fluent), French (fluent)

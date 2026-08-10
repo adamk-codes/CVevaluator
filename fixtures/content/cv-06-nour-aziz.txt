@@ -1,0 +1,14 @@
+# Nour Aziz
+@ nour.aziz@example.com | 03 118 774 | Zahle, Lebanon
+
+I have been writing Java professionally for a little over three years, all of it at Mount Lebanon Insurance, where I joined as a graduate developer and am now one of two people who maintain the claims platform.
+
+The platform is a Spring Boot application backed by PostgreSQL. I work across most of it. The piece I am most pleased with is the claims intake rewrite I did last year: the old flow was a single 900-line service method that did validation, persistence and notification in one transaction, and a timeout anywhere in it left claims half-created. I split it into three stages with explicit transaction boundaries and made the notification step retryable, which took the manual cleanup work our support team was doing from about ten claims a week to none. I also added the first integration tests the module ever had, using Testcontainers against a real PostgreSQL because the H2 tests we had were passing on queries that failed in production.
+
+Day to day I write REST endpoints with Spring Web, map entities with Spring Data JPA, and spend more time than I expected reading query plans. I found and fixed an N+1 on the claims list endpoint that was issuing 200-odd queries per page load; adding a fetch join brought a 3.4 second page down to 240 milliseconds. I am comfortable with JUnit 5 and Mockito and I write tests without being asked.
+
+What I have not done: we deploy to two virtual machines with a shell script, so I have no Kubernetes experience beyond a course I took. There is no message broker in our stack, so I have read about Kafka but never run it. Our service is not distributed in any meaningful sense, and our traffic is low enough that I have never had to tune the JVM. I am telling you this because I would rather be asked about it than found out in the interview.
+
+I hold a BS in Computer Science from the Lebanese University, Faculty of Sciences, 2021. Arabic and English fluent, French conversational.
+
+Java 17, Spring Boot, Spring Data JPA, Hibernate, PostgreSQL, JUnit 5, Mockito, Testcontainers, Maven, Git, Jenkins.
