@@ -38,6 +38,34 @@ cross-pairs — a backend CV against the restaurant job shares no vocabulary at
 all. Jobs 1 and 2 are the interesting pair: both say "engineer", both want
 PostgreSQL and Kubernetes, and neither transfers.
 
+Each job carries two forms of the same thing. `requirementsText` is the prose
+blob a recruiter would paste in, kept because it is the source the rest was
+derived from; nothing evaluates against it. `requirements` is the authored
+list — atomic, individually checkable lines, each `MUST_HAVE` or
+`NICE_TO_HAVE` — and that is what an assessment answers one by one.
+
+| id | requirements | of which `MUST_HAVE` |
+|----|--------------|----------------------|
+| `job-01-backend-engineer` | 11 | 4 |
+| `job-02-ml-engineer` | 12 | 4 |
+| `job-03-restaurant-manager` | 11 | 5 |
+
+`MUST_HAVE` was applied narrowly: it means a candidate lacking it is out
+regardless of everything else, so anything arguable was left as
+`NICE_TO_HAVE`. Two consequences worth knowing before reading a score:
+
+- **The lists were written from the job descriptions alone**, without looking
+  at the CVs, so they are not quietly shaped to fit the corpus. They do not
+  line up one-to-one with the `Required:` sentence in `requirementsText`
+  either — job-01's "designing and versioning REST APIs" reads as `Required`
+  in the prose and sits here as a `NICE_TO_HAVE`, because a strong Java and
+  Spring candidate who has not versioned a public API is not disqualified.
+- **Some requirements split one prose sentence in two.** Job-03's "5+ years in
+  hospitality management with at least 2 years running a full site" is two
+  independently checkable facts, so it is `R1` and `R2` rather than one line. A
+  CV can satisfy either without the other, and a single requirement that a
+  candidate half-meets is not something an assessment can answer honestly.
+
 `POST /api/jobs` takes these files as-is:
 
 ```bash

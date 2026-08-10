@@ -1,5 +1,6 @@
 package com.apliman.cvevaluator.common;
 
+import com.apliman.cvevaluator.job.InvalidJobRequirementsException;
 import com.apliman.cvevaluator.job.JobNotFoundException;
 import com.apliman.cvevaluator.storage.InvalidUploadException;
 import com.apliman.cvevaluator.storage.StorageException;
@@ -26,6 +27,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse(404, ex.getMessage()));
+    }
+
+    // Same shape as the InvalidUploadException handler below and for the same
+    // reason: every message is authored in JobRequirementsValidator and repeats
+    // only what the client sent, so it is safe to return as-is. It is a distinct
+    // type rather than an IllegalArgumentException so that "the requirements
+    // list broke a rule" cannot be widened by accident into "some argument
+    // somewhere was wrong".
+    @ExceptionHandler(InvalidJobRequirementsException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidRequirements(InvalidJobRequirementsException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(400, ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

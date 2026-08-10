@@ -1,6 +1,8 @@
 package com.apliman.cvevaluator.application;
 
 import com.apliman.cvevaluator.job.Job;
+import com.apliman.cvevaluator.job.JobRequirement;
+import com.apliman.cvevaluator.job.RequirementKind;
 import com.apliman.cvevaluator.user.Role;
 import com.apliman.cvevaluator.user.User;
 import org.junit.jupiter.api.Test;
@@ -28,7 +30,9 @@ class ApplicationRepositoryTest {
         User recruiter = entityManager.persistAndFlush(
                 new User("Recruiter", "hash", "recruiter@example.com", Role.RECRUITER));
         Job job = entityManager.persistAndFlush(
-                new Job("Backend Engineer", "desc", "reqs", "Senior", recruiter));
+                new Job("Backend Engineer", "desc", "reqs", "Senior",
+                        List.of(new JobRequirement("R1", "3+ years Java", RequirementKind.MUST_HAVE)),
+                        recruiter));
 
         for (int i = 1; i <= 3; i++) {
             User candidate = entityManager.persistAndFlush(

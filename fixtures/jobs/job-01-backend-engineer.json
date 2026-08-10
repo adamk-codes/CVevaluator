@@ -2,5 +2,18 @@
   "title": "Senior Backend Engineer (Java / Spring Boot)",
   "seniority": "Senior",
   "description": "We are building the transaction core of a regional payments platform. You will own services that settle money movement between banks, which means correctness, idempotency and observability matter more here than feature velocity. The team is six engineers; there is no separate ops team, so whoever writes a service also runs it. Expect to spend real time on schema design, on failure modes that only appear under concurrency, and on explaining your reasoning in design review. The stack is Java 21 and Spring Boot on PostgreSQL, deployed to Kubernetes, with Kafka between services.",
-  "requirements": "Required: 5+ years writing production backend services in Java. Deep Spring Boot experience, including dependency injection, transaction boundaries and Spring Data JPA. Strong relational modelling and SQL on PostgreSQL or a comparable engine, including indexing and query plans. Practical experience designing and versioning REST APIs consumed by other teams. Comfortable writing tests at unit and integration level. Nice to have: Kafka or another log-based message broker, Kubernetes, distributed tracing, experience with financial or otherwise correctness-critical systems, and exposure to JVM performance tuning."
+  "requirementsText": "Required: 5+ years writing production backend services in Java. Deep Spring Boot experience, including dependency injection, transaction boundaries and Spring Data JPA. Strong relational modelling and SQL on PostgreSQL or a comparable engine, including indexing and query plans. Practical experience designing and versioning REST APIs consumed by other teams. Comfortable writing tests at unit and integration level. Nice to have: Kafka or another log-based message broker, Kubernetes, distributed tracing, experience with financial or otherwise correctness-critical systems, and exposure to JVM performance tuning.",
+  "requirements": [
+    { "id": "R1", "kind": "MUST_HAVE", "text": "5 or more years writing production backend services in Java" },
+    { "id": "R2", "kind": "MUST_HAVE", "text": "Production Spring Boot experience covering dependency injection, transaction boundaries and Spring Data JPA" },
+    { "id": "R3", "kind": "MUST_HAVE", "text": "Relational data modelling and SQL on PostgreSQL or a comparable engine, including indexing and reading query plans" },
+    { "id": "R4", "kind": "MUST_HAVE", "text": "Writes automated tests at both unit and integration level" },
+    { "id": "R5", "kind": "NICE_TO_HAVE", "text": "Has designed and versioned REST APIs consumed by other teams" },
+    { "id": "R6", "kind": "NICE_TO_HAVE", "text": "Kafka or another log-based message broker" },
+    { "id": "R7", "kind": "NICE_TO_HAVE", "text": "Kubernetes" },
+    { "id": "R8", "kind": "NICE_TO_HAVE", "text": "Distributed tracing or comparable production observability tooling" },
+    { "id": "R9", "kind": "NICE_TO_HAVE", "text": "Has operated and been on call for services they wrote" },
+    { "id": "R10", "kind": "NICE_TO_HAVE", "text": "Experience with financial or otherwise correctness-critical systems" },
+    { "id": "R11", "kind": "NICE_TO_HAVE", "text": "JVM performance tuning" }
+  ]
 }

@@ -18,6 +18,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -126,7 +128,7 @@ class ApplicationControllerTest {
      */
     private static Application persistedApplication() {
         User candidate = new User("Candidate", "hash", "candidate@example.com", Role.CANDIDATE);
-        Job job = new Job("Backend Engineer", "desc", "reqs", "Senior", null);
+        Job job = new Job("Backend Engineer", "desc", "reqs", "Senior", List.of(), null);
         Application application =
                 new Application(job, candidate, "cv.pdf", "application/pdf", 16L, "a-uuid.pdf");
         ReflectionTestUtils.setField(application, "id", 42L);

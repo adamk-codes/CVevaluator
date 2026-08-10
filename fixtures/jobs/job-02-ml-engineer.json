@@ -2,5 +2,19 @@
   "title": "Machine Learning Engineer (NLP / Retrieval)",
   "seniority": "Mid-Senior",
   "description": "You will build the retrieval and ranking layer behind our document understanding product: chunking and embedding customer documents, serving nearest-neighbour search over tens of millions of vectors, and fine-tuning smaller models where a general-purpose one is too slow or too expensive. This is an engineering role with modelling in it, not a research role. Work is judged on offline evaluation numbers and on latency at the ninety-ninth percentile, and you are expected to build the evaluation harness that produces those numbers rather than inherit one.",
-  "requirements": "Required: 3+ years of Python in production, not only in notebooks. Hands-on training and fine-tuning with PyTorch or an equivalent framework. Working knowledge of transformer architectures, tokenisation and embedding models. Experience building an offline evaluation set and reporting precision, recall and nDCG against it. Comfortable with vector search, whether FAISS, pgvector, or a managed vector database. Nice to have: retrieval-augmented generation systems in production, model serving and quantisation, MLOps tooling such as MLflow or Weights and Biases, Kubernetes, and published work or open-source contributions."
+  "requirementsText": "Required: 3+ years of Python in production, not only in notebooks. Hands-on training and fine-tuning with PyTorch or an equivalent framework. Working knowledge of transformer architectures, tokenisation and embedding models. Experience building an offline evaluation set and reporting precision, recall and nDCG against it. Comfortable with vector search, whether FAISS, pgvector, or a managed vector database. Nice to have: retrieval-augmented generation systems in production, model serving and quantisation, MLOps tooling such as MLflow or Weights and Biases, Kubernetes, and published work or open-source contributions.",
+  "requirements": [
+    { "id": "R1", "kind": "MUST_HAVE", "text": "3 or more years of Python running in production, not notebook work alone" },
+    { "id": "R2", "kind": "MUST_HAVE", "text": "Has trained or fine-tuned models hands-on in PyTorch or an equivalent framework" },
+    { "id": "R3", "kind": "MUST_HAVE", "text": "Has built an offline evaluation set and reported retrieval metrics such as precision, recall or nDCG against it" },
+    { "id": "R4", "kind": "MUST_HAVE", "text": "Practical experience with vector or nearest-neighbour search using FAISS, pgvector or a managed vector database" },
+    { "id": "R5", "kind": "NICE_TO_HAVE", "text": "Working knowledge of transformer architectures, tokenisation and embedding models" },
+    { "id": "R6", "kind": "NICE_TO_HAVE", "text": "Has run retrieval-augmented generation systems in production" },
+    { "id": "R7", "kind": "NICE_TO_HAVE", "text": "Model serving and quantisation" },
+    { "id": "R8", "kind": "NICE_TO_HAVE", "text": "Has served nearest-neighbour search at a scale of millions of vectors or more" },
+    { "id": "R9", "kind": "NICE_TO_HAVE", "text": "Has tuned serving latency against a tail-latency target such as p99" },
+    { "id": "R10", "kind": "NICE_TO_HAVE", "text": "MLOps tooling such as MLflow or Weights and Biases" },
+    { "id": "R11", "kind": "NICE_TO_HAVE", "text": "Kubernetes" },
+    { "id": "R12", "kind": "NICE_TO_HAVE", "text": "Published work or open-source contributions" }
+  ]
 }

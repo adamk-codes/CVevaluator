@@ -2,5 +2,18 @@
   "title": "Restaurant General Manager",
   "seniority": "Senior",
   "description": "You will run a 140-cover casual dining restaurant in Beirut with a team of roughly thirty across kitchen and front of house. The role owns the site outright: profit and loss, rota and labour cost, supplier relationships, stock and wastage, food safety compliance, and the guest experience on a busy Friday night. Our previous manager grew covers by a third in two years, so the bar is a manager who reads the numbers weekly and acts on them, not one who only firefights service. You report to the operations director and are on the floor during peak service.",
-  "requirements": "Required: 5+ years in hospitality management with at least 2 years running a full site as general manager or equivalent. Demonstrated profit and loss ownership, including food cost and labour cost percentage targets you were held to. Experience hiring, rostering and developing a team of twenty or more. Working knowledge of food safety and HACCP compliance, and comfort being the responsible person during an inspection. Confident handling guest complaints and supplier negotiation in person. Nice to have: multi-site experience, restaurant opening or refurbishment experience, an EPOS or stock control system rollout, and spoken Arabic, English and French."
+  "requirementsText": "Required: 5+ years in hospitality management with at least 2 years running a full site as general manager or equivalent. Demonstrated profit and loss ownership, including food cost and labour cost percentage targets you were held to. Experience hiring, rostering and developing a team of twenty or more. Working knowledge of food safety and HACCP compliance, and comfort being the responsible person during an inspection. Confident handling guest complaints and supplier negotiation in person. Nice to have: multi-site experience, restaurant opening or refurbishment experience, an EPOS or stock control system rollout, and spoken Arabic, English and French.",
+  "requirements": [
+    { "id": "R1", "kind": "MUST_HAVE", "text": "5 or more years in hospitality management" },
+    { "id": "R2", "kind": "MUST_HAVE", "text": "2 or more years running a full site as general manager or equivalent" },
+    { "id": "R3", "kind": "MUST_HAVE", "text": "Has owned a profit and loss account, including food cost and labour cost percentage targets they were held to" },
+    { "id": "R4", "kind": "MUST_HAVE", "text": "Has hired, rostered and developed a team of twenty or more" },
+    { "id": "R5", "kind": "MUST_HAVE", "text": "Working knowledge of food safety and HACCP compliance, including acting as responsible person during an inspection" },
+    { "id": "R6", "kind": "NICE_TO_HAVE", "text": "Handles guest complaints and supplier negotiation face to face" },
+    { "id": "R7", "kind": "NICE_TO_HAVE", "text": "Has controlled stock and wastage against a target" },
+    { "id": "R8", "kind": "NICE_TO_HAVE", "text": "Multi-site experience" },
+    { "id": "R9", "kind": "NICE_TO_HAVE", "text": "Restaurant opening or refurbishment experience" },
+    { "id": "R10", "kind": "NICE_TO_HAVE", "text": "Has rolled out an EPOS or stock control system" },
+    { "id": "R11", "kind": "NICE_TO_HAVE", "text": "Speaks Arabic, English and French" }
+  ]
 }
