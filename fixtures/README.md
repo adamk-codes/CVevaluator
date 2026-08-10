@@ -38,11 +38,16 @@ cross-pairs — a backend CV against the restaurant job shares no vocabulary at
 all. Jobs 1 and 2 are the interesting pair: both say "engineer", both want
 PostgreSQL and Kubernetes, and neither transfers.
 
-Each job carries two forms of the same thing. `requirementsText` is the prose
-blob a recruiter would paste in, kept because it is the source the rest was
-derived from; nothing evaluates against it. `requirements` is the authored
-list — atomic, individually checkable lines, each `MUST_HAVE` or
-`NICE_TO_HAVE` — and that is what an assessment answers one by one.
+Each job carries a `requirements` list: atomic, individually checkable lines,
+each `MUST_HAVE` or `NICE_TO_HAVE`. That is what an assessment answers one by
+one, and it is the only form of the requirements the application stores.
+
+These lists were written from each posting's original prose — the
+`Required: … Nice to have: …` blob these files used to carry alongside the
+description. That blob is gone from the fixtures and from the `Job` entity,
+because nothing read it: it was the input to a one-time authoring step, not
+data the system uses. It is recoverable from git history if the derivation
+ever needs auditing.
 
 | id | requirements | of which `MUST_HAVE` |
 |----|--------------|----------------------|
@@ -54,10 +59,10 @@ list — atomic, individually checkable lines, each `MUST_HAVE` or
 regardless of everything else, so anything arguable was left as
 `NICE_TO_HAVE`. Two consequences worth knowing before reading a score:
 
-- **The lists were written from the job descriptions alone**, without looking
+- **The lists were written from the job postings alone**, without looking
   at the CVs, so they are not quietly shaped to fit the corpus. They do not
-  line up one-to-one with the `Required:` sentence in `requirementsText`
-  either — job-01's "designing and versioning REST APIs" reads as `Required`
+  line up one-to-one with the original `Required:` sentence
+  either — job-01's "designing and versioning REST APIs" read as `Required`
   in the prose and sits here as a `NICE_TO_HAVE`, because a strong Java and
   Spring candidate who has not versioned a public API is not disqualified.
 - **Some requirements split one prose sentence in two.** Job-03's "5+ years in

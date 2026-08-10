@@ -252,7 +252,7 @@ class JobControllerRequirementsTest {
     }
 
     private static Job existingJob() {
-        Job job = new Job("Senior Backend Engineer", "desc", "prose", "Senior",
+        Job job = new Job("Senior Backend Engineer", "desc", "Senior",
                 List.of(new JobRequirement("R1", "5+ years of Java", RequirementKind.MUST_HAVE)),
                 null);
         ReflectionTestUtils.setField(job, "id", 1L);

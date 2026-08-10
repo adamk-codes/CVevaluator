@@ -30,7 +30,7 @@ class ApplicationRepositoryTest {
         User recruiter = entityManager.persistAndFlush(
                 new User("Recruiter", "hash", "recruiter@example.com", Role.RECRUITER));
         Job job = entityManager.persistAndFlush(
-                new Job("Backend Engineer", "desc", "reqs", "Senior",
+                new Job("Backend Engineer", "desc", "Senior",
                         List.of(new JobRequirement("R1", "3+ years Java", RequirementKind.MUST_HAVE)),
                         recruiter));
 

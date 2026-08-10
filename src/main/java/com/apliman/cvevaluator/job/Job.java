@@ -32,30 +32,19 @@ public class Job {
     private String description;
 
     /**
-     * The free-text "Required: ... Nice to have: ..." blob from the posting.
-     *
-     * <p>Was called {@code requirements} until the authored list below took that
-     * name. The column keeps the old name deliberately: with
-     * {@code ddl-auto=update} a rename is an ADD, not a RENAME, so letting the
-     * field name pick the column would have added an empty
-     * {@code requirements_text} and stranded every existing posting's text on an
-     * orphaned column.
-     *
-     * <p>Kept rather than deleted because it is what a recruiter pasted in and
-     * what the authored list was derived from. Nothing evaluates against it.
-     */
-    @Column(name = "requirements", columnDefinition = "TEXT")
-    private String requirementsText;
-
-    /**
      * The authored requirements, in the order the recruiter wrote them.
      *
      * <p>Stored as {@code jsonb} on this row, not as a child entity — see
-     * {@link JobRequirement} for why. A separate column from
-     * {@code requirements} above and not a retype of it, because
-     * {@code ddl-auto=update} never alters an existing column's type: pointed at
-     * the old {@code varchar}, this would fail at the first insert with a type
-     * mismatch rather than at startup.
+     * {@link JobRequirement} for why.
+     *
+     * <p>The column is {@code requirements_json} rather than {@code requirements}
+     * because a free-text {@code varchar} column of that name already exists on
+     * this table, left behind by the prose requirements blob this list replaced.
+     * {@code ddl-auto=update} never alters an existing column's type, so pointing
+     * this at {@code requirements} would fail at the first insert with a type
+     * mismatch rather than at startup. The old column is now unmapped; it still
+     * holds the prose for postings created before the switch, which is the only
+     * reason it has not been dropped.
      */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "requirements_json", columnDefinition = "jsonb")
@@ -106,14 +95,12 @@ public class Job {
     public Job(
             String title,
             String description,
-            String requirementsText,
             String seniority,
             List<JobRequirement> requirements,
             User createdByRecruiter
     ) {
         this.title = title;
         this.description = description;
-        this.requirementsText = requirementsText;
         this.seniority = seniority;
         this.requirements = requirements == null ? List.of() : List.copyOf(requirements);
         this.requirementsVersion = 1;
@@ -151,10 +138,6 @@ public class Job {
 
     public String getDescription() {
         return description;
-    }
-
-    public String getRequirementsText() {
-        return requirementsText;
     }
 
     /**

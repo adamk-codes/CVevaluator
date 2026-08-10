@@ -54,7 +54,6 @@ class JobRequirementsPersistenceTest {
         // silently change what the evaluation was answering.
         assertThat(reloaded.getRequirements()).containsExactlyElementsOf(REQUIREMENTS);
         assertThat(reloaded.getRequirementsVersion()).isEqualTo(1);
-        assertThat(reloaded.getRequirementsText()).isEqualTo("Required: 5+ years of Java. Nice to have: Kafka.");
     }
 
     /**
@@ -117,7 +116,6 @@ class JobRequirementsPersistenceTest {
         return entityManager.persistAndFlush(new Job(
                 "Senior Backend Engineer",
                 "We are building the transaction core of a payments platform.",
-                "Required: 5+ years of Java. Nice to have: Kafka.",
                 "Senior",
                 requirements,
                 recruiter));

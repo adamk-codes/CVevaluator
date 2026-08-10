@@ -9,7 +9,6 @@ public record JobResponse(
         Long id,
         String title,
         String description,
-        String requirementsText,
         String seniority,
         List<JobRequirement> requirements,
         int requirementsVersion,

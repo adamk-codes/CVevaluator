@@ -128,7 +128,7 @@ class ApplicationControllerTest {
      */
     private static Application persistedApplication() {
         User candidate = new User("Candidate", "hash", "candidate@example.com", Role.CANDIDATE);
-        Job job = new Job("Backend Engineer", "desc", "reqs", "Senior", List.of(), null);
+        Job job = new Job("Backend Engineer", "desc", "Senior", List.of(), null);
         Application application =
                 new Application(job, candidate, "cv.pdf", "application/pdf", 16L, "a-uuid.pdf");
         ReflectionTestUtils.setField(application, "id", 42L);

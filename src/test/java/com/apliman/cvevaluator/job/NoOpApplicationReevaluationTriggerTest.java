@@ -88,7 +88,7 @@ class NoOpApplicationReevaluationTriggerTest {
 
     /** A job as it looks after an edit: id assigned, version already bumped. */
     private static Job job() {
-        Job job = new Job("Senior Backend Engineer", "desc", "prose", "Senior",
+        Job job = new Job("Senior Backend Engineer", "desc", "Senior",
                 List.of(new JobRequirement("R1", "5+ years of Java", RequirementKind.MUST_HAVE)),
                 null);
         ReflectionTestUtils.setField(job, "id", 7L);

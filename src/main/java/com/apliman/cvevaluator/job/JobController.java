@@ -46,7 +46,7 @@ public class JobController {
         // and never inferred here - nothing in this method asks an LLM anything.
         List<JobRequirement> requirements = requirementsValidator.validateAndNormalise(request.requirements());
 
-        Job job=new Job(request.title(),request.description(),request.requirementsText(),
+        Job job=new Job(request.title(),request.description(),
                 request.seniority(), requirements, recruiter);
         Job saved=repo.save(job);
         return ResponseEntity.status(201).body(toResponse(saved));
@@ -114,7 +114,6 @@ public class JobController {
                 job.getId(),
                 job.getTitle(),
                 job.getDescription(),
-                job.getRequirementsText(),
                 job.getSeniority(),
                 job.getRequirements(),
                 job.getRequirementsVersion(),
