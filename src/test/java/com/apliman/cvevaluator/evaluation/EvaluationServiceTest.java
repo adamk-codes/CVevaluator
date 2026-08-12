@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Import;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * The retention cap, exercised against the real database.
@@ -129,6 +130,72 @@ class EvaluationServiceTest {
     @Test
     void findLatestIsEmptyBeforeAnythingIsRecorded() {
         assertThat(service.findLatest(persistedApplication())).isEmpty();
+    }
+
+    // --- deletion --------------------------------------------------------
+
+    @Test
+    void deleteRemovesTheEvaluationAndLeavesTheRest() {
+        Application application = persistedApplication();
+        Evaluation first = service.record(application, result(Verdict.WEAK_FIT, 1));
+        service.record(application, result(Verdict.STRONG_FIT, 2));
+
+        service.delete(application, first.getId());
+
+        assertThat(service.findHistory(application))
+                .extracting(Evaluation::getRequirementsVersion)
+                .containsExactly(2);
+    }
+
+    /**
+     * Deleting the current evaluation is allowed, and the one before it becomes
+     * current. That row is the one a recruiter who disagrees with a result most
+     * wants gone, so refusing would block the main use.
+     */
+    @Test
+    void deletingTheLatestPromotesThePreviousOne() {
+        Application application = persistedApplication();
+        service.record(application, result(Verdict.WEAK_FIT, 1));
+        Evaluation latest = service.record(application, result(Verdict.STRONG_FIT, 2));
+
+        service.delete(application, latest.getId());
+
+        assertThat(service.findLatest(application).orElseThrow().getVerdict())
+                .isEqualTo(Verdict.WEAK_FIT);
+    }
+
+    @Test
+    void deletingTheOnlyEvaluationLeavesTheApplicationUnevaluated() {
+        Application application = persistedApplication();
+        Evaluation only = service.record(application, result(Verdict.STRONG_FIT, 1));
+
+        service.delete(application, only.getId());
+
+        assertThat(service.findLatest(application)).isEmpty();
+    }
+
+    /**
+     * The check that matters. Without scoping, a guessed id would delete another
+     * candidate's evaluation.
+     */
+    @Test
+    void deletingAnEvaluationBelongingToAnotherApplicationIsRefused() {
+        Application mine = persistedApplication();
+        Application theirs = persistedApplication();
+        Evaluation theirEvaluation = service.record(theirs, result(Verdict.STRONG_FIT, 1));
+
+        assertThatThrownBy(() -> service.delete(mine, theirEvaluation.getId()))
+                .isInstanceOf(EvaluationNotFoundException.class);
+
+        assertThat(service.findHistory(theirs)).hasSize(1);
+    }
+
+    @Test
+    void deletingAnUnknownEvaluationIsRefused() {
+        Application application = persistedApplication();
+
+        assertThatThrownBy(() -> service.delete(application, 999_999L))
+                .isInstanceOf(EvaluationNotFoundException.class);
     }
 
     private Application persistedApplication() {

@@ -16,7 +16,12 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -155,6 +160,35 @@ class EvaluationControllerTest {
 
         mockMvc.perform(get("/api/applications/42/evaluation/requirements/r2"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void delete_returns204AndAsksTheServiceToRemoveIt() throws Exception {
+        mockMvc.perform(delete("/api/applications/42/evaluations/7"))
+                .andExpect(status().isNoContent());
+
+        verify(evaluationService).delete(application, 7L);
+    }
+
+    @Test
+    void delete_returns404WhenTheEvaluationIsNotUnderThisApplication() throws Exception {
+        doThrow(new EvaluationNotFoundException("Application 42 has no evaluation 7."))
+                .when(evaluationService).delete(any(), eq(7L));
+
+        mockMvc.perform(delete("/api/applications/42/evaluations/7"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("Application 42 has no evaluation 7."));
+    }
+
+    @Test
+    void delete_returns404ForAnUnknownApplicationWithoutTouchingTheService() throws Exception {
+        when(applications.findById(999L)).thenReturn(Optional.empty());
+
+        mockMvc.perform(delete("/api/applications/999/evaluations/7"))
+                .andExpect(status().isNotFound());
+
+        verify(evaluationService, never()).delete(any(), any());
     }
 
     private Evaluation evaluation() {

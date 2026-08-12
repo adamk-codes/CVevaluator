@@ -81,6 +81,43 @@ public class EvaluationService {
     }
 
     /**
+     * Removes one evaluation a recruiter no longer wants.
+     *
+     * <p>The second deletion path, alongside the retention cap, and the only one
+     * a person drives. It is unconditional: the newest evaluation can be deleted
+     * as readily as an old one, in which case the one before it becomes current
+     * and {@link #findLatest} answers with that instead. Refusing to delete the
+     * newest was the alternative — it would keep "there is always a current
+     * evaluation" true — and was rejected because the row a recruiter most wants
+     * gone is precisely the one they just disagreed with.
+     *
+     * <p>Deleting the only evaluation leaves the application with none at all,
+     * which reads exactly like never having been evaluated. That is honest
+     * rather than lossy: it will be evaluated again on the next requirements
+     * change.
+     *
+     * <p>Scoped by application rather than taking the id alone. A bare
+     * {@code deleteById} would let a caller who guessed an id remove an
+     * evaluation belonging to a different candidate, and the path already names
+     * the application it should be under.
+     *
+     * @throws EvaluationNotFoundException if no such evaluation exists under
+     *                                     this application
+     */
+    @Transactional
+    public void delete(Application application, Long evaluationId) {
+        Evaluation evaluation = evaluations.findById(evaluationId)
+                .orElseThrow(() -> EvaluationNotFoundException.forId(application.getId(), evaluationId));
+
+        if (!evaluation.getApplication().getId().equals(application.getId())) {
+            throw EvaluationNotFoundException.forId(application.getId(), evaluationId);
+        }
+
+        evaluations.delete(evaluation);
+        log.info("Application {}: evaluation {} deleted on request", application.getId(), evaluationId);
+    }
+
+    /**
      * Drops everything past the newest {@code maxPerApplication}.
      *
      * <p>Loads the history to find what to delete rather than issuing a bulk

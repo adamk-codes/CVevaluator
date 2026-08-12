@@ -5,9 +5,12 @@ import com.apliman.cvevaluator.application.ApplicationNotFoundException;
 import com.apliman.cvevaluator.application.ApplicationRepository;
 import com.apliman.cvevaluator.evaluation.dto.EvaluationResponse;
 import com.apliman.cvevaluator.evaluation.dto.RequirementAssessmentResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -89,6 +92,27 @@ public class EvaluationController {
                 .findFirst()
                 .map(assessment -> RequirementAssessmentResponse.from(evaluation, assessment))
                 .orElseThrow(() -> EvaluationNotFoundException.forRequirement(applicationId, requirementId));
+    }
+
+    /**
+     * Discards an evaluation the recruiter no longer wants.
+     *
+     * <p>204 with no body: there is nothing meaningful to return, and the
+     * client already knows what it deleted.
+     *
+     * <p>Not idempotent in the strict sense — deleting the same id twice gives
+     * 204 then 404. That is the more useful answer here: a recruiter who gets a
+     * 404 on a delete has learned they were looking at a stale list, which a
+     * silent second 204 would hide.
+     *
+     * <p>Scoped under the application in the path, and the service checks the
+     * evaluation actually belongs to it. Without that check a guessed id would
+     * delete another candidate's evaluation.
+     */
+    @DeleteMapping("/evaluations/{evaluationId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long applicationId, @PathVariable Long evaluationId) {
+        evaluations.delete(application(applicationId), evaluationId);
     }
 
     private Evaluation latestFor(Long applicationId) {

@@ -30,4 +30,15 @@ public class EvaluationNotFoundException extends RuntimeException {
                 "The latest evaluation of application " + applicationId
                         + " has no assessment for requirement '" + requirementId + "'.");
     }
+
+    /**
+     * Used both when the id is unknown and when it belongs to a different
+     * application. The same message for both on purpose: a caller who guesses
+     * ids should not be able to learn which ones exist from the difference
+     * between two error messages.
+     */
+    static EvaluationNotFoundException forId(Long applicationId, Long evaluationId) {
+        return new EvaluationNotFoundException(
+                "Application " + applicationId + " has no evaluation " + evaluationId + ".");
+    }
 }

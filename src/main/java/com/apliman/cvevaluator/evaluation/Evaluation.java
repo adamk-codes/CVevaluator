@@ -26,8 +26,9 @@ import java.util.List;
  * removed by {@link EvaluationService#record} — the comparison above only ever
  * needed recent history, and every row here carries two {@code jsonb} blobs, so
  * an unbounded one grows on every requirements edit forever for rows nobody
- * reads. A row is therefore either present exactly as written, or gone; it is
- * never something in between.
+ * reads. A recruiter can also delete one outright through
+ * {@link EvaluationService#delete}. A row is therefore either present exactly
+ * as written, or gone; it is never something in between.
  *
  * <p>There is deliberately no {@code current} flag and no unique constraint on
  * {@code application_id}. "The latest evaluation" is a query — order by
