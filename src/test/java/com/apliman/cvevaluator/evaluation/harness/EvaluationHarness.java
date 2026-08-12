@@ -290,6 +290,7 @@ class EvaluationHarness {
                     pair.jobId(),
                     pair.expected(),
                     result.verdict(),
+                    result.assessments(),
                     quotedAssessments(result).size(),
                     quotedAssessments(result).size() - ungrounded.size(),
                     ungrounded,
@@ -303,7 +304,7 @@ class EvaluationHarness {
             System.out.printf("      failed: %s%n", description);
             return new HarnessReport.PairResult(
                     pair.cvName(), pair.candidate(), pair.jobId(), pair.expected(),
-                    null, 0, 0, List.of(), 0, 0, 0L,
+                    null, List.of(), 0, 0, List.of(), 0, 0, 0L,
                     description);
         }
     }

@@ -1,5 +1,6 @@
 package com.apliman.cvevaluator.evaluation.harness;
 
+import com.apliman.cvevaluator.evaluation.RequirementAssessment;
 import com.apliman.cvevaluator.evaluation.Verdict;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -38,6 +39,12 @@ public final class HarnessReport {
     /**
      * One evaluated pair.
      *
+     * <p>{@code assessments} is the expensive part of the payload and the reason
+     * it is here: the verdict is computed from it by pure Java, so a stored copy
+     * lets any number of alternative verdict rules be replayed against real
+     * evaluations at zero API cost. Without it, every candidate scoring formula
+     * needs its own full run. See {@code VerdictReplay}.
+     *
      * @param error non-null when the evaluation threw; the pair then counts as
      *              a failure rather than a disagreement, because no verdict was
      *              produced to disagree with
@@ -48,6 +55,7 @@ public final class HarnessReport {
             String job,
             Verdict expected,
             Verdict actual,
+            List<RequirementAssessment> assessments,
             int quotesChecked,
             int quotesGrounded,
             List<String> ungroundedQuotes,
