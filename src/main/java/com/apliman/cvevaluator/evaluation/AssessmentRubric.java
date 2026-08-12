@@ -20,25 +20,33 @@ import java.nio.charset.StandardCharsets;
 public class AssessmentRubric {
 
     /**
-     * <strong>Bump this on every edit to {@code assessment-rubric.md}.</strong>
-     * Every stored evaluation records the version that produced it, so two
-     * evaluations are only comparable when this string matches. Editing the
-     * rubric without bumping it is the one change that silently rewrites the
+     * <strong>Bump this on every edit to the prompt.</strong> That means
+     * {@code assessment-rubric.md} <em>and</em> {@code LlmEvaluator.userMessage},
+     * which together are what the model actually sees — versioning only the
+     * rubric file would let half the prompt change silently.
+     *
+     * <p>Every stored evaluation records the version that produced it, so two
+     * evaluations are only comparable when this string matches. Editing either
+     * half without bumping it is the one change that silently rewrites the
      * meaning of history: old rows keep claiming they were judged by rules that
      * no longer exist, and nothing in the data reveals it.
      *
      * <p>A hand-maintained constant rather than a file hash on purpose. A hash
      * would move on a typo fix, which is exactly the change that should
-     * <em>not</em> invalidate a comparison, and it is not something you can read
-     * out loud in a demo.
+     * <em>not</em> invalidate a comparison, it could not see the Java half at
+     * all, and it is not something you can read out loud in a demo.
      *
      * <h2>History</h2>
      * <ul>
      *   <li>{@code v1} — first version. Grounding rules, four-value status,
      *       null-quote rule, 0/3/5 anchors on both dimensions.
+     *   <li>{@code v2} — user message restructured into Role / Context / Task /
+     *       Constraints / Output / Examples / CV, with the CV fenced by explicit
+     *       markers and the enforced rules restated next to the task. Rubric
+     *       file unchanged.
      * </ul>
      */
-    public static final String ASSESSMENT_PROMPT_VERSION = "v1";
+    public static final String ASSESSMENT_PROMPT_VERSION = "v2";
 
     private final String text;
 
