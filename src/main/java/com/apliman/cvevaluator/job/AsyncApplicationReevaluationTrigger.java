@@ -4,6 +4,7 @@ import com.apliman.cvevaluator.application.Application;
 import com.apliman.cvevaluator.application.ApplicationRepository;
 import com.apliman.cvevaluator.application.ApplicationStatus;
 import com.apliman.cvevaluator.evaluation.EvaluationParseException;
+import com.apliman.cvevaluator.evaluation.EvaluationProperties;
 import com.apliman.cvevaluator.evaluation.EvaluationResult;
 import com.apliman.cvevaluator.evaluation.EvaluationService;
 import com.apliman.cvevaluator.evaluation.LlmEvaluator;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Re-evaluates every eligible application on a job when its requirements
@@ -50,25 +52,30 @@ public class AsyncApplicationReevaluationTrigger implements ApplicationReevaluat
     private final ApplicationRepository applications;
     private final EvaluationService evaluationService;
     private final LlmEvaluator evaluator;
+    private final EvaluationProperties properties;
 
     public AsyncApplicationReevaluationTrigger(
             ApplicationRepository applications,
             EvaluationService evaluationService,
-            LlmEvaluator evaluator
+            LlmEvaluator evaluator,
+            EvaluationProperties properties
     ) {
         this.applications = applications;
         this.evaluationService = evaluationService;
         this.evaluator = evaluator;
+        this.properties = properties;
     }
 
     /**
      * <strong>TODO(D3): move this onto the evaluation {@code TaskExecutor}.</strong>
      * It runs synchronously on the caller's thread today, which means
      * {@code PUT /api/jobs/{id}/requirements} does not return until every
-     * application on the job has been through the model. On a job with twenty
-     * CVs that is a request held open for minutes — acceptable while the only
-     * caller is a demo with three fixtures, not acceptable after D3 builds the
-     * executor. The class is named for where it is going, not where it is:
+     * application on the job has been through the model — measured at roughly
+     * 22 seconds each — plus up to {@code extraction-wait} for any still being
+     * extracted. On a job with twenty CVs that is a request held open for
+     * minutes: acceptable while the only caller is a demo with three fixtures,
+     * not acceptable after D3 builds the executor. The class is named for where
+     * it is going, not where it is:
      * everything else about it is already async-shaped, so the change is to
      * submit {@link #reevaluate} per application to the pool and return
      * immediately.
@@ -94,19 +101,32 @@ public class AsyncApplicationReevaluationTrigger implements ApplicationReevaluat
         int failed = 0;
 
         for (Application application : eligible) {
-            // PENDING and PROCESSING rows are non-FAILED but have no text yet -
-            // extraction is still in flight. They are skipped rather than
-            // waited for: the evaluation they are owed will be produced when
-            // extraction finishes, and blocking here would make this method's
-            // duration depend on an unrelated background queue.
-            if (!StringUtils.hasText(application.getRedactedText())) {
-                log.debug("Application {} has no extracted text yet ({}); skipping re-evaluation",
-                        application.getId(), application.getStatus());
+            // A PENDING or PROCESSING row is non-FAILED but has no text yet -
+            // its extraction is still queued or running. Waiting rather than
+            // skipping is what stops a CV uploaded moments before a
+            // requirements edit from silently going unevaluated until the next
+            // edit, which for the last CV submitted may be never.
+            Optional<Application> extracted = awaitExtraction(application);
+            if (extracted.isEmpty()) {
                 skipped++;
                 continue;
             }
 
-            if (reevaluate(job, application)) {
+            Application current = extracted.get();
+
+            // Reached a terminal state, but not a usable one: extraction ran and
+            // produced nothing, or produced too little. Re-read from the row
+            // rather than trusted from the initial query, because the status
+            // may have moved to FAILED while this method was waiting.
+            if (current.getStatus() == ApplicationStatus.FAILED
+                    || !StringUtils.hasText(current.getRedactedText())) {
+                log.debug("Application {} has no usable text ({}); skipping re-evaluation",
+                        current.getId(), current.getStatus());
+                skipped++;
+                continue;
+            }
+
+            if (reevaluate(job, current)) {
                 written++;
             } else {
                 failed++;
@@ -115,6 +135,81 @@ public class AsyncApplicationReevaluationTrigger implements ApplicationReevaluat
 
         log.info("Job {} re-evaluation complete: {} written, {} skipped, {} failed",
                 job.getId(), written, skipped, failed);
+    }
+
+    /**
+     * Blocks until this application's extraction reaches a terminal state.
+     *
+     * <h2>Why poll instead of waiting on the extraction thread</h2>
+     *
+     * The two never share a thread or a transaction. Extraction runs on the
+     * {@code cv-extract-} pool and commits its own short transactions, so there
+     * is no future to join and no lock to wait on — re-reading the row is the
+     * only way to observe it finishing. Each read is its own transaction, which
+     * is also what makes the new status visible at all: a single long-running
+     * transaction here would keep returning the snapshot it started with.
+     *
+     * <h2>What it costs</h2>
+     *
+     * This runs on the caller's thread, which today is the thread serving
+     * {@code PUT /api/jobs/{id}/requirements}. That request already blocks for
+     * one model call per application; this adds up to
+     * {@code extraction-wait} more per application that is still extracting.
+     * The bound is what keeps it survivable — without a deadline, one
+     * application stuck in PROCESSING would hold the request open forever. Set
+     * {@code cvevaluator.evaluation.extraction-wait=0} to restore the old
+     * skip-immediately behaviour.
+     *
+     * @return the freshly-read application once its extraction is terminal, or
+     *         empty if the wait expired, the thread was interrupted, or the row
+     *         disappeared
+     */
+    private Optional<Application> awaitExtraction(Application application) {
+        if (isTerminal(application.getStatus())) {
+            return Optional.of(application);
+        }
+
+        long deadline = System.nanoTime() + properties.extractionWait().toNanos();
+        long pollMillis = properties.extractionPollInterval().toMillis();
+
+        log.info("Application {} is {}; waiting up to {} for extraction to finish",
+                application.getId(), application.getStatus(), properties.extractionWait());
+
+        while (System.nanoTime() < deadline) {
+            try {
+                Thread.sleep(pollMillis);
+            } catch (InterruptedException e) {
+                // Restore the flag and give up rather than swallowing it. A
+                // cleared interrupt here would leave a shutting-down executor
+                // unable to stop this loop.
+                Thread.currentThread().interrupt();
+                log.warn("Interrupted while waiting for application {} to finish extracting",
+                        application.getId());
+                return Optional.empty();
+            }
+
+            Optional<Application> current = applications.findById(application.getId());
+            if (current.isEmpty()) {
+                log.warn("Application {} disappeared while waiting for extraction", application.getId());
+                return Optional.empty();
+            }
+            if (isTerminal(current.get().getStatus())) {
+                return current;
+            }
+        }
+
+        log.warn("Application {} did not finish extracting within {}; skipping it. It will be "
+                        + "evaluated on the next requirements change.",
+                application.getId(), properties.extractionWait());
+        return Optional.empty();
+    }
+
+    /**
+     * COMPLETED and FAILED are the two states extraction stops at. Everything
+     * else means it has not run yet or is running now.
+     */
+    private static boolean isTerminal(ApplicationStatus status) {
+        return status == ApplicationStatus.COMPLETED || status == ApplicationStatus.FAILED;
     }
 
     /**
