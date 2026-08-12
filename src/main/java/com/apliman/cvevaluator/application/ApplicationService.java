@@ -120,6 +120,16 @@ public class ApplicationService {
             application.setTextLength(extractedText.length());
             application.setFailureReason(null);
             application.setStatus(ApplicationStatus.COMPLETED);
+
+            // Published here rather than from CvIngestionService because this is
+            // the only point that knows the text actually landed on the row. The
+            // ingestion service knows it parsed something; it does not know the
+            // write succeeded, and an evaluation fired on a write that rolled
+            // back would read stale text.
+            //
+            // Only on the success path. recordExtractionFailure deliberately
+            // publishes nothing - there is no text to evaluate.
+            events.publishEvent(new CvExtractedEvent(applicationId));
         });
     }
 
