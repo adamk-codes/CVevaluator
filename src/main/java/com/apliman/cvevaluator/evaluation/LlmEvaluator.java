@@ -60,6 +60,19 @@ public class LlmEvaluator {
      */
     private static final String NOT_CONFIGURED = "not-configured";
 
+    /**
+     * The shortest summary that can plausibly be the "few sentences" the rubric
+     * asks for.
+     *
+     * <p>Deliberately low. The purpose is to catch a summary that is absent in
+     * substance — {@code ""}, {@code "N/A"}, {@code "Good candidate."} — not to
+     * police prose length, and a threshold tuned close to what real summaries
+     * measure would start failing evaluations that are merely terse. Observed
+     * summaries on the fixture corpus run 200-400 characters, so 40 sits far
+     * enough below that only a non-answer trips it.
+     */
+    private static final int MINIMUM_SUMMARY_LENGTH = 40;
+
     private final ChatClient chatClient;
     private final VerdictCalculator verdictCalculator;
     private final boolean apiKeyConfigured;
@@ -230,8 +243,14 @@ public class LlmEvaluator {
      * Collecting all violations first was the alternative and was rejected: the
      * caller marks the row FAILED either way, and one specific reason is more
      * useful on a status endpoint than a list.
+     *
+     * <p>Package-private rather than private so {@code LlmEvaluatorValidationTest}
+     * can drive it directly. These are the only guarantees in the pipeline — the
+     * schema is advisory prompt text and the rubric is a request — so they are
+     * worth testing against hand-built malformed responses rather than only
+     * through a live model call that will not produce them on demand.
      */
-    private static void validate(List<JobRequirement> requirements, LlmEvaluationResponse body) {
+    static void validate(List<JobRequirement> requirements, LlmEvaluationResponse body) {
         List<RequirementAssessment> assessments = body.requirementAssessments();
         if (assessments == null || assessments.isEmpty()) {
             throw new EvaluationParseException("The model returned no requirement assessments.");
@@ -286,6 +305,35 @@ public class LlmEvaluator {
         }
 
         validateDimensions(body.dimensionScores());
+        validateSummary(body.summary());
+    }
+
+    /**
+     * The summary is the only free prose in the output, and until now it was the
+     * only field nothing checked.
+     *
+     * <p>It cannot be validated the way the rest can — there is no id to match,
+     * no enum to be a member of, no range to fall inside. What it can be checked
+     * for is presence: a stored evaluation whose headline paragraph is blank is
+     * one a recruiter opens and learns nothing from, and every structured field
+     * around it would still be perfectly valid. So this asserts the one property
+     * that is objectively testable and leaves the content itself to the rubric.
+     *
+     * <p>Worth knowing what this does <em>not</em> check: nothing here confirms
+     * the summary agrees with the assessments, or that it only mentions things
+     * the CV actually says. A summary that contradicts every status it sits next
+     * to passes this. Catching that needs the summary's claims checked against
+     * the CV text, which is the grounding checker's job, not this method's.
+     */
+    private static void validateSummary(String summary) {
+        if (!StringUtils.hasText(summary)) {
+            throw new EvaluationParseException("The model returned no summary.");
+        }
+        if (summary.strip().length() < MINIMUM_SUMMARY_LENGTH) {
+            throw new EvaluationParseException(
+                    "The model's summary is " + summary.strip().length() + " characters, which is too "
+                            + "short to be a usable assessment.");
+        }
     }
 
     private static void validateDimensions(List<DimensionScore> scores) {
