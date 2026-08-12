@@ -15,6 +15,10 @@ import java.util.Optional;
  * the application — each carrying two {@code jsonb} blobs of assessments and a
  * summary — in order to look at the first one and discard the rest. The history
  * is a deliberate ask, not the default.
+ *
+ * <p>Prefer {@link EvaluationService} over calling this directly for writes.
+ * {@code save} here inserts a row and nothing else; the retention cap is
+ * applied in the service, so a direct save leaves the history unbounded.
  */
 public interface EvaluationRepository extends JpaRepository<Evaluation, Long> {
 

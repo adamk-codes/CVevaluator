@@ -19,11 +19,15 @@ package com.apliman.cvevaluator.job;
  * detail — it binds any future replacement, not just the current one:
  *
  * <ul>
- *   <li><strong>Insert new {@code Evaluation} rows only.</strong> Never update,
- *       never delete a prior evaluation. An assessment is a record of what was
- *       said about a candidate at a point in time; overwriting one destroys the
- *       evidence that the requirements change is what moved the score, which is
- *       the only reason to keep the history at all.
+ *   <li><strong>Insert new {@code Evaluation} rows only.</strong> Never update
+ *       a prior evaluation, and never delete one directly. An assessment is a
+ *       record of what was said about a candidate at a point in time;
+ *       overwriting one destroys the evidence that the requirements change is
+ *       what moved the score, which is the only reason to keep the history at
+ *       all. Trimming the history to its retention cap is
+ *       {@code EvaluationService}'s job, in the same transaction as the insert
+ *       — an implementation that deletes rows on its own is doing something
+ *       this contract does not permit.
  *   <li><strong>Stamp each new row with the job's current
  *       {@code requirementsVersion}.</strong> Without it two evaluations of the
  *       same application are indistinguishable and neither can be tied back to

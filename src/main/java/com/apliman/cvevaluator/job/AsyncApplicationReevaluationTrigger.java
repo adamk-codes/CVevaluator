@@ -3,10 +3,9 @@ package com.apliman.cvevaluator.job;
 import com.apliman.cvevaluator.application.Application;
 import com.apliman.cvevaluator.application.ApplicationRepository;
 import com.apliman.cvevaluator.application.ApplicationStatus;
-import com.apliman.cvevaluator.evaluation.Evaluation;
 import com.apliman.cvevaluator.evaluation.EvaluationParseException;
-import com.apliman.cvevaluator.evaluation.EvaluationRepository;
 import com.apliman.cvevaluator.evaluation.EvaluationResult;
+import com.apliman.cvevaluator.evaluation.EvaluationService;
 import com.apliman.cvevaluator.evaluation.LlmEvaluator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,21 +18,25 @@ import java.util.List;
  * Re-evaluates every eligible application on a job when its requirements
  * change. Replaces the no-op placeholder that held this seam open.
  *
- * <h2>It writes, and only writes</h2>
+ * <h2>It only ever inserts</h2>
  *
- * Each application gets a <em>new</em> {@link Evaluation} row. Nothing here
- * updates or deletes an existing one, and {@code Evaluation} has no setters to
- * make that possible by accident. The prior evaluation is the evidence that the
- * requirements edit is what moved the candidate; overwriting it would leave a
- * changed score with nothing to compare against.
+ * Each application gets a <em>new</em> evaluation row; no existing one is ever
+ * modified. The prior evaluation is the evidence that the requirements edit is
+ * what moved the candidate, and overwriting it would leave a changed score with
+ * nothing to compare against.
+ *
+ * <p>Older evaluations beyond the retention cap are removed, but that happens
+ * in {@link EvaluationService#record}, inside the same transaction as the
+ * insert — not here. This class has no delete path of its own.
  *
  * <h2>Not transactional, deliberately</h2>
  *
  * This class has no {@code @Transactional} anywhere and must not acquire one.
  * It makes a network call per application, each taking seconds; holding a
  * database transaction open across that would pin a connection from the pool
- * for the length of the whole burst. Each {@code save} is its own short
- * transaction. The consequence to know about: a batch that fails halfway leaves
+ * for the length of the whole burst. Each write is its own short transaction,
+ * owned by {@link EvaluationService}. The consequence to know about: a batch
+ * that fails halfway leaves
  * the earlier applications evaluated and the rest not. That is the right
  * trade — the rows written are correct and complete, and a partial batch is
  * re-runnable, whereas a rolled-back batch would throw away good evaluations
@@ -45,16 +48,16 @@ public class AsyncApplicationReevaluationTrigger implements ApplicationReevaluat
     private static final Logger log = LoggerFactory.getLogger(AsyncApplicationReevaluationTrigger.class);
 
     private final ApplicationRepository applications;
-    private final EvaluationRepository evaluations;
+    private final EvaluationService evaluationService;
     private final LlmEvaluator evaluator;
 
     public AsyncApplicationReevaluationTrigger(
             ApplicationRepository applications,
-            EvaluationRepository evaluations,
+            EvaluationService evaluationService,
             LlmEvaluator evaluator
     ) {
         this.applications = applications;
-        this.evaluations = evaluations;
+        this.evaluationService = evaluationService;
         this.evaluator = evaluator;
     }
 
@@ -125,7 +128,12 @@ public class AsyncApplicationReevaluationTrigger implements ApplicationReevaluat
             // and the D3 grounding checker has to match quotes against the same
             // text the model saw - see the parameter note on LlmEvaluator.evaluate.
             EvaluationResult result = evaluator.evaluate(job, application.getRedactedText());
-            evaluations.save(new Evaluation(application, result));
+
+            // The model call above is finished before this line, so the write
+            // transaction inside record() never spans a network round trip.
+            // Moving the evaluate() call inside a transactional method would
+            // undo that quietly - see the class note.
+            evaluationService.record(application, result);
             return true;
 
         } catch (EvaluationParseException e) {

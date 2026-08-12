@@ -11,14 +11,23 @@ import java.util.List;
 /**
  * One stored evaluation of one application.
  *
- * <h2>Append-only</h2>
+ * <h2>Never modified, and kept for a bounded window</h2>
  *
- * Nothing ever updates or deletes a row in this table. A re-evaluation after a
+ * Nothing ever updates a row in this table — there are no setters, so there is
+ * nothing for Hibernate's dirty checking to notice. A re-evaluation after a
  * requirements edit inserts another row against the same application, and the
- * old one stays exactly as it was. That is the only thing that makes "the
- * requirements change is what moved this candidate" a claim you can check
- * rather than assert: both evaluations are there, each stamped with the
+ * old one stays exactly as it was written. That is what makes "the requirements
+ * change is what moved this candidate" a claim you can check rather than
+ * assert: both evaluations are there, each stamped with the
  * {@code requirementsVersion} and {@code promptVersion} it was made under.
+ *
+ * <p>The history is capped rather than infinite. Beyond
+ * {@code cvevaluator.evaluation.max-per-application} the oldest rows are
+ * removed by {@link EvaluationService#record} — the comparison above only ever
+ * needed recent history, and every row here carries two {@code jsonb} blobs, so
+ * an unbounded one grows on every requirements edit forever for rows nobody
+ * reads. A row is therefore either present exactly as written, or gone; it is
+ * never something in between.
  *
  * <p>There is deliberately no {@code current} flag and no unique constraint on
  * {@code application_id}. "The latest evaluation" is a query — order by
@@ -89,6 +98,10 @@ public class Evaluation {
      * There is no setter on this class and no partial constructor: an evaluation
      * that exists is an evaluation that was validated, and the only way to get an
      * {@code EvaluationResult} is through {@code LlmEvaluator}, which validates.
+     *
+     * <p>Construct through {@link EvaluationService#record} rather than calling
+     * this and saving directly — that is where the retention cap is applied, and
+     * a bare {@code repository.save} bypasses it.
      */
     public Evaluation(Application application, EvaluationResult result) {
         this.application = application;
