@@ -11,8 +11,8 @@ import com.apliman.cvevaluator.job.Job;
 import com.apliman.cvevaluator.job.dto.CreateJobRequest;
 import com.apliman.cvevaluator.redaction.PiiRedactor;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatAutoConfiguration;
 import org.springframework.ai.model.chat.client.autoconfigure.ChatClientAutoConfiguration;
 import org.springframework.ai.model.chat.observation.autoconfigure.ChatObservationAutoConfiguration;
 import org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration;
@@ -55,12 +55,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <h2>Running it</h2>
  *
  * <pre>
- * mvnw test -Dtest=EvaluationHarness -Dcvevaluator.harness=true
+ * mvnw test -Dtest=EvaluationHarness -Dcvevaluator.harness=true \
+ *           -Dcvevaluator.harness.provider=anthropic
  * </pre>
  *
- * Two gates, both required: {@code GEMINI_API_KEY} present, and the opt-in
- * property. The property exists because this makes 60 paid calls and takes
- * roughly 20 minutes — it must never fire from a plain {@code mvn test}.
+ * The opt-in property is the gate. It exists because a full run is 60 paid
+ * calls taking roughly 20 minutes — it must never fire from a plain
+ * {@code mvn test}. The API key for the selected provider must also be
+ * exported, but that is checked inside the test rather than by an annotation,
+ * so a missing key fails loudly instead of skipping silently.
  *
  * <p>There is a third layer, and it is worth knowing about because it explains
  * why {@code mvn test} shows no trace of this class at all — not even as
@@ -81,6 +84,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  *       afterwards
  *   <li>{@code -Dcvevaluator.harness.delay-ms=6000} — pace the calls, for a key
  *       whose tier cannot sustain a full run back to back
+ *   <li>{@code -Dcvevaluator.harness.provider=anthropic} — grade with Claude
+ *       instead of Gemini; defaults to {@code google}. See {@link Provider} for
+ *       what that does and does not tell you.
  * </ul>
  *
  * <h2>Quota is the binding constraint</h2>
@@ -92,14 +98,71 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Check the tier the key is on before scheduling a comparison — the harness
  * cannot measure anything the quota will not pay for.
  */
-@EnabledIfEnvironmentVariable(named = "GEMINI_API_KEY", matches = ".+")
 @EnabledIfSystemProperty(named = "cvevaluator.harness", matches = "true")
 class EvaluationHarness {
 
     private static final Path FIXTURES = Path.of("fixtures");
     private static final Path REPORTS = Path.of("harness-reports");
 
-    private static final String MODEL = "gemini-2.5-flash";
+    /**
+     * The provider and model a run uses, chosen by
+     * {@code -Dcvevaluator.harness.provider}.
+     *
+     * <p>Two exist because Gemini's free tier cannot finish a 60-pair run — it
+     * 429s partway through — so measuring anything at all needs a provider
+     * whose quota can complete one.
+     *
+     * <p><strong>What that costs in interpretation:</strong> a run on
+     * {@link #ANTHROPIC} measures how well <em>Claude</em> grades, and
+     * production runs Gemini. The numbers do not transfer directly. They are
+     * still worth having for the question actually being asked — whether
+     * batching requirements into smaller calls helps — because the mechanism
+     * there (less cross-contamination between requirements, more attention per
+     * requirement) is not specific to one model. Treat a result as evidence
+     * about the technique, not as a measurement of the deployed system.
+     */
+    private enum Provider {
+
+        GOOGLE("google-genai", "gemini-2.5-flash", "GEMINI_API_KEY", "spring.ai.google.genai.api-key",
+                "spring.ai.google.genai.chat.options.model"),
+
+        ANTHROPIC("anthropic", "claude-haiku-4-5-20251001", "ANTHROPIC_API_KEY", "spring.ai.anthropic.api-key",
+                "spring.ai.anthropic.chat.options.model");
+
+        private final String selector;
+        private final String model;
+        private final String keyVariable;
+        private final String keyProperty;
+        private final String modelProperty;
+
+        Provider(String selector, String model, String keyVariable, String keyProperty, String modelProperty) {
+            this.selector = selector;
+            this.model = model;
+            this.keyVariable = keyVariable;
+            this.keyProperty = keyProperty;
+            this.modelProperty = modelProperty;
+        }
+
+        static Provider selected() {
+            String requested = System.getProperty("cvevaluator.harness.provider", "google");
+            return switch (requested.toLowerCase(java.util.Locale.ROOT)) {
+                case "google", "gemini", "google-genai" -> GOOGLE;
+                case "anthropic", "claude" -> ANTHROPIC;
+                default -> throw new IllegalArgumentException(
+                        "Unknown -Dcvevaluator.harness.provider=" + requested + " (use google or anthropic)");
+            };
+        }
+
+        String[] propertyValues() {
+            return new String[]{
+                    keyProperty + "=" + System.getenv(keyVariable),
+                    modelProperty + "=" + model,
+                    // Without this, every chat autoconfiguration on the
+                    // classpath activates and ChatClient.Builder cannot pick a
+                    // ChatModel. Both starters are present at test scope.
+                    "spring.ai.model.chat=" + selector};
+        }
+    }
 
     /**
      * Consecutive failures before the run gives up on the whole corpus.
@@ -111,17 +174,25 @@ class EvaluationHarness {
      */
     private static final int CONSECUTIVE_FAILURE_LIMIT = 5;
 
+    private final Provider provider = Provider.selected();
+
+    /**
+     * Both provider autoconfigurations are offered; {@code spring.ai.model.chat}
+     * in {@link Provider#propertyValues()} decides which one actually builds a
+     * {@code ChatModel}. Listing only the selected one would work too, but this
+     * way the selection lives in exactly one place rather than being split
+     * between the class list and the properties.
+     */
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(
                     SpringAiRetryAutoConfiguration.class,
                     ToolCallingAutoConfiguration.class,
                     ChatObservationAutoConfiguration.class,
                     GoogleGenAiChatAutoConfiguration.class,
+                    AnthropicChatAutoConfiguration.class,
                     ChatClientAutoConfiguration.class))
             .withUserConfiguration(EvaluationBeans.class)
-            .withPropertyValues(
-                    "spring.ai.google.genai.api-key=" + System.getenv("GEMINI_API_KEY"),
-                    "spring.ai.google.genai.chat.options.model=" + MODEL);
+            .withPropertyValues(provider.propertyValues());
 
     @Configuration(proxyBeanMethods = false)
     @Import({AssessmentRubric.class, VerdictCalculator.class, LlmEvaluator.class})
@@ -130,13 +201,20 @@ class EvaluationHarness {
 
     @Test
     void scoreTheFixtureCorpus() {
+        // Checked here rather than with @EnabledIfEnvironmentVariable, because
+        // which variable is required now depends on the selected provider and
+        // the annotation cannot read that. A missing key aborts loudly instead
+        // of silently skipping - a run asked for explicitly should never look
+        // like it passed when it never happened.
+        assumeKeyPresent();
+
         contextRunner.run(context -> {
             LlmEvaluator evaluator = context.getBean(LlmEvaluator.class);
 
             List<HarnessManifest.Pair> pairs = selected(HarnessManifest.pairs(FIXTURES));
             HarnessReport report = new HarnessReport(
                     System.getProperty("cvevaluator.harness.label", "single-call"),
-                    MODEL,
+                    provider.model,
                     AssessmentRubric.ASSESSMENT_PROMPT_VERSION);
 
             System.out.printf("Harness: %d pair(s) to evaluate. This will take a while.%n", pairs.size());
@@ -316,6 +394,15 @@ class EvaluationHarness {
         }
         int limit = Math.min(Integer.parseInt(sample.trim()), all.size());
         return all.subList(0, limit);
+    }
+
+    private void assumeKeyPresent() {
+        if (!StringUtils.hasText(System.getenv(provider.keyVariable))) {
+            throw new IllegalStateException(
+                    "Harness provider is " + provider + " but " + provider.keyVariable
+                            + " is not set. Export it, or pass -Dcvevaluator.harness.provider="
+                            + (provider == Provider.GOOGLE ? "anthropic" : "google") + ".");
+        }
     }
 
     /**

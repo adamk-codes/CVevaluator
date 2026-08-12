@@ -90,6 +90,18 @@
 			<artifactId>spring-ai-starter-model-google-genai</artifactId>
 		</dependency>
 
+		<!-- Harness only, and test scope is what enforces that. Gemini's free
+		     tier cannot complete a 60-pair run - it 429s partway through - so
+		     the measurement runs need a provider whose quota can finish one.
+		     Production stays on Gemini: this artifact is absent from the
+		     runtime classpath, so its autoconfiguration cannot load there even
+		     if a property were set by accident. -->
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-starter-model-anthropic</artifactId>
+			<scope>test</scope>
+		</dependency>
+
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
