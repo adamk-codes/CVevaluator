@@ -1,10 +1,12 @@
 package com.apliman.cvevaluator.application;
 
+import com.apliman.cvevaluator.evaluation.Evaluation;
 import com.apliman.cvevaluator.job.Job;
 import com.apliman.cvevaluator.user.User;
 import jakarta.persistence.*;
 
 import java.time.Instant;
+import java.util.List;
 
 @Entity
 @Table(name = "applications")
@@ -51,6 +53,38 @@ public class Application {
 
     @Column(nullable = false)
     private Instant submittedAt;
+
+    /**
+     * The evaluation history for this CV, newest first.
+     *
+     * <p>The inverse side. {@code Evaluation.application} owns the
+     * {@code application_id} column; {@code mappedBy} says so and stops
+     * Hibernate creating a second foreign key for the same relationship.
+     *
+     * <p><strong>LAZY, and reading it outside a transaction throws.</strong>
+     * That is the trap worth knowing here: {@code getEvaluations()} on a
+     * detached instance — one returned from a repository call that has already
+     * committed — fails with {@code LazyInitializationException} rather than
+     * returning an empty list. Callers outside a transaction should go through
+     * {@code EvaluationRepository} instead, which is also the only way to ask
+     * for just the latest one rather than dragging the whole history into
+     * memory to look at its head.
+     *
+     * <p>{@code @OrderBy} rather than leaving the order to the database, so the
+     * head of this list means the same thing as the head of the repository's
+     * newest-first query. An unordered collection whose first element is
+     * <em>usually</em> the latest is worse than one that is never ordered at
+     * all, because it works in testing.
+     *
+     * <p>No cascade and no {@code orphanRemoval} on purpose. Deleting an
+     * {@code Application} does not currently happen anywhere, and wiring
+     * removal through this collection would mean an accidental
+     * {@code list.remove(...)} silently deletes a row. Deletion goes through
+     * the repository, where it is explicit.
+     */
+    @OneToMany(mappedBy = "application", fetch = FetchType.LAZY)
+    @OrderBy("createdAt DESC")
+    private List<Evaluation> evaluations;
 
     protected Application() {
     }
@@ -127,6 +161,17 @@ public class Application {
 
     public Instant getSubmittedAt() {
         return submittedAt;
+    }
+
+    /**
+     * Newest first. Never null — an application with no evaluations yet reads
+     * as an empty list rather than forcing every caller to null-check.
+     *
+     * @throws org.hibernate.LazyInitializationException if called on a detached
+     *         instance; see the field.
+     */
+    public List<Evaluation> getEvaluations() {
+        return evaluations == null ? List.of() : List.copyOf(evaluations);
     }
 
     public void setExtractedText(String extractedText) {
