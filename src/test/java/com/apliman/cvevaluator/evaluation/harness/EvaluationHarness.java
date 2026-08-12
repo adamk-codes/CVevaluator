@@ -160,7 +160,20 @@ class EvaluationHarness {
                     // Without this, every chat autoconfiguration on the
                     // classpath activates and ChatClient.Builder cannot pick a
                     // ChatModel. Both starters are present at test scope.
-                    "spring.ai.model.chat=" + selector};
+                    "spring.ai.model.chat=" + selector,
+                    // LlmEvaluator's own guard reads spring.ai.google.genai.api-key
+                    // directly and refuses to evaluate when it is blank or the
+                    // placeholder - a guard written when Gemini was the only
+                    // provider. On an Anthropic run that property is otherwise
+                    // unset and every pair fails with "No Gemini API key is
+                    // configured" despite a perfectly good Anthropic key.
+                    //
+                    // Satisfied with a sentinel rather than a real key. Nothing
+                    // reads it: spring.ai.model.chat above keeps the Google
+                    // autoconfiguration inactive, so no Google client is ever
+                    // built. Named so it is obvious in a heap dump or a log
+                    // that this is not a credential.
+                    "spring.ai.google.genai.api-key=unused-on-" + selector + "-run"};
         }
     }
 
