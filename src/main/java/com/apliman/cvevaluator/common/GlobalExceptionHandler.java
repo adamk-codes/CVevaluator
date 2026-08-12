@@ -1,5 +1,7 @@
 package com.apliman.cvevaluator.common;
 
+import com.apliman.cvevaluator.application.ApplicationNotFoundException;
+import com.apliman.cvevaluator.evaluation.EvaluationNotFoundException;
 import com.apliman.cvevaluator.job.InvalidJobRequirementsException;
 import com.apliman.cvevaluator.job.JobNotFoundException;
 import com.apliman.cvevaluator.storage.InvalidUploadException;
@@ -40,6 +42,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(400, ex.getMessage()));
+    }
+
+    @ExceptionHandler(ApplicationNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleApplicationNotFound(ApplicationNotFoundException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(404, ex.getMessage()));
+    }
+
+    // Every message is authored in the evaluation package and repeats only ids
+    // the client already sent, so it is safe to return as-is. It never carries
+    // CV text - the exception that can, EvaluationParseException, is caught by
+    // the re-evaluation trigger and never reaches a client.
+    @ExceptionHandler(EvaluationNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleEvaluationNotFound(EvaluationNotFoundException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(404, ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
