@@ -3,6 +3,7 @@ package com.apliman.cvevaluator.job;
 import com.apliman.cvevaluator.application.Application;
 import com.apliman.cvevaluator.application.ApplicationRepository;
 import com.apliman.cvevaluator.application.ApplicationStatus;
+import com.apliman.cvevaluator.evaluation.EvaluationExecutorConfig;
 import com.apliman.cvevaluator.evaluation.EvaluationParseException;
 import com.apliman.cvevaluator.evaluation.EvaluationProperties;
 import com.apliman.cvevaluator.evaluation.EvaluationResult;
@@ -10,6 +11,7 @@ import com.apliman.cvevaluator.evaluation.EvaluationService;
 import com.apliman.cvevaluator.evaluation.LlmEvaluator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -67,25 +69,37 @@ public class AsyncApplicationReevaluationTrigger implements ApplicationReevaluat
     }
 
     /**
-     * <strong>TODO(D3): move this onto the evaluation {@code TaskExecutor}.</strong>
-     * It runs synchronously on the caller's thread today, which means
-     * {@code PUT /api/jobs/{id}/requirements} does not return until every
-     * application on the job has been through the model — measured at roughly
-     * 22 seconds each — plus up to {@code extraction-wait} for any still being
-     * extracted. On a job with twenty CVs that is a request held open for
-     * minutes: acceptable while the only caller is a demo with three fixtures,
-     * not acceptable after D3 builds the executor. The class is named for where
-     * it is going, not where it is:
-     * everything else about it is already async-shaped, so the change is to
-     * submit {@link #reevaluate} per application to the pool and return
-     * immediately.
+     * Runs on the evaluation pool, not the caller's thread.
      *
-     * <p>The call site in {@code JobController} is already correct for that
-     * move — it fires this after {@code save} has committed and outside any
-     * transaction of its own, so a worker thread reading the job back will see
-     * the new version. See the note on {@code JobController.replaceRequirements}
-     * before changing anything there.
+     * <p>{@code PUT /api/jobs/{id}/requirements} now returns as soon as the
+     * job is saved. Before this it stayed open for one model call per
+     * application — roughly twenty seconds each — plus up to
+     * {@code extraction-wait} for any CV still being extracted, so a job with
+     * twenty applications held a request for minutes.
+     *
+     * <p>The whole sweep is one task rather than one task per application.
+     * That keeps a job's evaluations sequential, which is what the provider's
+     * rate limit wants anyway, and means the summary line at the end still
+     * reports the batch as a batch.
+     *
+     * <p><strong>{@code @Async} only works through the proxy.</strong> This is
+     * called from {@code JobController} on an injected bean, which goes through
+     * it. A future caller inside this class calling it directly would silently
+     * get the old synchronous behaviour back, with nothing failing to say so.
+     *
+     * <p>The {@code Job} passed here crosses a thread boundary, which is safe
+     * only because its requirements are a {@code jsonb} column on the row
+     * rather than a lazy child collection — they are already in memory. Adding
+     * a lazy association to {@code Job} and reading it in here would throw
+     * {@code LazyInitializationException} on the worker thread, and only under
+     * the timing where the caller's transaction has already closed.
+     *
+     * <p>The call site in {@code JobController} fires this after {@code save}
+     * has committed and outside any transaction of its own, so a worker thread
+     * reading the job back sees the new version. See the note on
+     * {@code JobController.replaceRequirements} before changing anything there.
      */
+    @Async(EvaluationExecutorConfig.EVALUATION_EXECUTOR)
     @Override
     public void onRequirementsChanged(Job job) {
         // FAILED means extraction never produced text. Excluded in the query
