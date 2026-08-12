@@ -35,6 +35,12 @@ build/
 ### Uploaded CVs — never commit candidate files ###
 cv-uploads/
 
+### Evaluation harness output ###
+# Run artifacts, not source. Kept outside target/ so a baseline run survives
+# mvn clean - comparing a later run against a baseline the build wiped is the
+# whole point of keeping one.
+harness-reports/
+
 # Compiled class file
 *.class
 
