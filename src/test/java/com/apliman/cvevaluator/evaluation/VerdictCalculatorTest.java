@@ -31,56 +31,103 @@ class VerdictCalculatorTest {
     }
 
     /**
-     * The hard gate. Everything else being perfect must not rescue it — that is
-     * what MUST_HAVE means, and if a strong CV can slip through a failed
-     * must-have the recruiter's answer to "is a candidate without this out?" was
-     * never actually honoured.
+     * The case that broke the previous rule, and the reason this class changed.
+     *
+     * <p>One missed must-have is the manifest's definition of a borderline
+     * candidate — "real overlap but a named gap in a required area". The old
+     * gate answered NOT_A_FIT here, which made POSSIBLE_FIT unreachable for any
+     * realistic CV and collapsed a four-band scale to two.
      */
     @Test
-    void oneMustHaveNotMet_isNotAFit_evenWhenEverythingElseIsMet() {
+    void exactlyOneMustHaveMissed_isPossibleFit() {
         List<RequirementAssessment> assessments = new ArrayList<>();
         assessments.add(assessment("R1", RequirementKind.MUST_HAVE, RequirementStatus.MET));
         assessments.add(assessment("R2", RequirementKind.MUST_HAVE, RequirementStatus.NOT_MET));
         assessments.addAll(niceToHaves(6, RequirementStatus.MET));
 
-        assertThat(calculator.calculate(assessments)).isEqualTo(Verdict.NOT_A_FIT);
+        assertThat(calculator.calculate(assessments)).isEqualTo(Verdict.POSSIBLE_FIT);
     }
 
     /**
-     * UNCLEAR on a must-have is the same outcome as NOT_MET and for a reason
-     * worth stating out loud: the two are different findings, but neither is
-     * evidence that the requirement is satisfied. Letting silence pass would
-     * score a CV that omits the topic above one that admits the gap.
+     * UNCLEAR still counts as missed, and that has not changed. The two are
+     * different findings but neither is evidence the requirement is satisfied,
+     * and letting silence pass would score a CV that omits a topic above one
+     * that admits the gap. Measured, too: giving UNCLEAR credit collapsed
+     * NOT_A_FIT accuracy from 34/34 to 18/34 on the corpus.
      */
     @Test
-    void oneMustHaveUnclear_isNotAFit_evenWhenEverythingElseIsMet() {
+    void aMustHaveThatIsUnclearCountsAsMissedJustLikeNotMet() {
+        List<RequirementAssessment> withUnclear = new ArrayList<>();
+        withUnclear.add(assessment("R1", RequirementKind.MUST_HAVE, RequirementStatus.MET));
+        withUnclear.add(assessment("R2", RequirementKind.MUST_HAVE, RequirementStatus.UNCLEAR));
+        withUnclear.addAll(niceToHaves(6, RequirementStatus.MET));
+
+        List<RequirementAssessment> withNotMet = new ArrayList<>();
+        withNotMet.add(assessment("R1", RequirementKind.MUST_HAVE, RequirementStatus.MET));
+        withNotMet.add(assessment("R2", RequirementKind.MUST_HAVE, RequirementStatus.NOT_MET));
+        withNotMet.addAll(niceToHaves(6, RequirementStatus.MET));
+
+        assertThat(calculator.calculate(withUnclear))
+                .isEqualTo(calculator.calculate(withNotMet))
+                .isEqualTo(Verdict.POSSIBLE_FIT);
+    }
+
+    /** More than one gap, but not every one: under-qualified rather than unqualified. */
+    @Test
+    void severalMustHavesMissedButNotAll_isWeakFit() {
         List<RequirementAssessment> assessments = new ArrayList<>();
         assessments.add(assessment("R1", RequirementKind.MUST_HAVE, RequirementStatus.MET));
-        assessments.add(assessment("R2", RequirementKind.MUST_HAVE, RequirementStatus.UNCLEAR));
-        assessments.addAll(niceToHaves(6, RequirementStatus.MET));
-
-        assertThat(calculator.calculate(assessments)).isEqualTo(Verdict.NOT_A_FIT);
-    }
-
-    /**
-     * Half credit everywhere lands at 0.5, just under the 0.55 possible-fit
-     * threshold. This is the test that pins the gap between those two numbers:
-     * "related but weaker on every single line" is a weak fit.
-     */
-    @Test
-    void everyRequirementPartial_isWeakFit() {
-        List<RequirementAssessment> assessments = new ArrayList<>();
-        assessments.addAll(mustHaves(3, RequirementStatus.PARTIAL));
-        assessments.addAll(niceToHaves(5, RequirementStatus.PARTIAL));
+        assessments.add(assessment("R2", RequirementKind.MUST_HAVE, RequirementStatus.NOT_MET));
+        assessments.add(assessment("R3", RequirementKind.MUST_HAVE, RequirementStatus.UNCLEAR));
+        assessments.addAll(niceToHaves(4, RequirementStatus.MET));
 
         assertThat(calculator.calculate(assessments)).isEqualTo(Verdict.WEAK_FIT);
     }
 
     /**
-     * Clears every gate, brings nothing else: 0.8 * 1.0 + 0.2 * 0.0 = 0.80,
-     * which is below STRONG_FIT_THRESHOLD on purpose. This case is the whole
-     * reason that threshold is 0.85 and not 0.80 — a candidate who is exactly
-     * qualified and no more is worth a conversation, not a headline.
+     * Every must-have missed, but the CV clearly relates to the job: the junior
+     * developer case. NOT_A_FIT means a different profession, so this has to
+     * stay WEAK_FIT — no rule keyed on must-haves alone can tell these two
+     * apart, which is exactly what DOMAIN_FLOOR exists for.
+     */
+    @Test
+    void everyMustHaveMissedButNiceToHavesMatched_isWeakFitNotNotAFit() {
+        List<RequirementAssessment> assessments = new ArrayList<>();
+        assessments.addAll(mustHaves(3, RequirementStatus.NOT_MET));
+        assessments.addAll(niceToHaves(5, RequirementStatus.MET));
+
+        assertThat(calculator.calculate(assessments)).isEqualTo(Verdict.WEAK_FIT);
+    }
+
+    /** Nothing matches anywhere. The only route to NOT_A_FIT. */
+    @Test
+    void nothingMatchesAtAll_isNotAFit() {
+        List<RequirementAssessment> assessments = new ArrayList<>();
+        assessments.addAll(mustHaves(3, RequirementStatus.NOT_MET));
+        assessments.addAll(niceToHaves(6, RequirementStatus.UNCLEAR));
+
+        assertThat(calculator.calculate(assessments)).isEqualTo(Verdict.NOT_A_FIT);
+    }
+
+    /**
+     * Half credit on every line still leaves zero must-haves <em>missed</em>,
+     * since PARTIAL is neither NOT_MET nor UNCLEAR. Nice-to-have coverage of
+     * 0.5 clears the strong-fit floor, so this is a STRONG_FIT under the new
+     * rule where the old score-based one called it WEAK_FIT.
+     */
+    @Test
+    void everyRequirementPartial_isStrongFit() {
+        List<RequirementAssessment> assessments = new ArrayList<>();
+        assessments.addAll(mustHaves(3, RequirementStatus.PARTIAL));
+        assessments.addAll(niceToHaves(5, RequirementStatus.PARTIAL));
+
+        assertThat(calculator.calculate(assessments)).isEqualTo(Verdict.STRONG_FIT);
+    }
+
+    /**
+     * Clears every must-have and brings nothing else. Worth a conversation, not
+     * a headline — the one case that separates STRONG_FIT from POSSIBLE_FIT
+     * when no requirement was missed at all.
      */
     @Test
     void allMustHavesMetAndNoNiceToHaves_isPossibleFit() {
@@ -91,15 +138,57 @@ class VerdictCalculatorTest {
         assertThat(calculator.calculate(assessments)).isEqualTo(Verdict.POSSIBLE_FIT);
     }
 
+    /** All four verdicts must be reachable. The previous rule could produce two. */
+    @Test
+    void everyVerdictIsReachable() {
+        assertThat(List.of(
+                calculator.calculate(strongFitCase()),
+                calculator.calculate(possibleFitCase()),
+                calculator.calculate(weakFitCase()),
+                calculator.calculate(notAFitCase())))
+                .containsExactly(Verdict.STRONG_FIT, Verdict.POSSIBLE_FIT,
+                        Verdict.WEAK_FIT, Verdict.NOT_A_FIT);
+    }
+
+    private static List<RequirementAssessment> strongFitCase() {
+        List<RequirementAssessment> assessments = new ArrayList<>();
+        assessments.addAll(mustHaves(3, RequirementStatus.MET));
+        assessments.addAll(niceToHaves(4, RequirementStatus.MET));
+        return assessments;
+    }
+
+    private static List<RequirementAssessment> possibleFitCase() {
+        List<RequirementAssessment> assessments = new ArrayList<>();
+        assessments.add(assessment("M1", RequirementKind.MUST_HAVE, RequirementStatus.MET));
+        assessments.add(assessment("M2", RequirementKind.MUST_HAVE, RequirementStatus.NOT_MET));
+        assessments.addAll(niceToHaves(4, RequirementStatus.MET));
+        return assessments;
+    }
+
+    private static List<RequirementAssessment> weakFitCase() {
+        List<RequirementAssessment> assessments = new ArrayList<>();
+        assessments.addAll(mustHaves(3, RequirementStatus.NOT_MET));
+        assessments.addAll(niceToHaves(5, RequirementStatus.MET));
+        return assessments;
+    }
+
+    private static List<RequirementAssessment> notAFitCase() {
+        List<RequirementAssessment> assessments = new ArrayList<>();
+        assessments.addAll(mustHaves(3, RequirementStatus.NOT_MET));
+        assessments.addAll(niceToHaves(6, RequirementStatus.NOT_MET));
+        return assessments;
+    }
+
     /**
-     * A job whose requirements are all MUST_HAVE must still be able to reach
-     * STRONG_FIT. Scoring an absent nice-to-have list as 0.0 coverage would cap
-     * it at 0.80 forever, and nothing about the output would show why.
+     * A job whose requirements are all MUST_HAVE. Every one met and no
+     * nice-to-have list to judge against, so it lands at POSSIBLE_FIT — the
+     * same place a candidate who clears every bar and brings nothing extra
+     * lands, which is the honest answer when there is nothing extra to bring.
      */
     @Test
-    void jobWithNoNiceToHavesAtAll_canStillReachStrongFit() {
+    void jobWithNoNiceToHavesAtAll_isPossibleFitWhenEveryMustHaveIsMet() {
         assertThat(calculator.calculate(mustHaves(3, RequirementStatus.MET)))
-                .isEqualTo(Verdict.STRONG_FIT);
+                .isEqualTo(Verdict.POSSIBLE_FIT);
     }
 
     /**

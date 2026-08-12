@@ -64,8 +64,14 @@ public final class VerdictStrategy {
      */
     public static List<Named> all() {
         return List.of(
-                new Named("shipped",
-                        "Hard gate: any NOT_MET/UNCLEAR must-have -> NOT_A_FIT",
+                // The real production class, not a copy of it. Any candidate
+                // that fails to beat this row is not worth adopting, and a copy
+                // could silently drift from what actually ships.
+                new Named("SHIPPED (live)",
+                        "com.apliman.cvevaluator.evaluation.VerdictCalculator, as deployed",
+                        new com.apliman.cvevaluator.evaluation.VerdictCalculator()::calculate),
+                new Named("old-hard-gate",
+                        "The rule this replaced: any NOT_MET/UNCLEAR must-have -> NOT_A_FIT",
                         VerdictStrategy::shipped),
                 new Named("gate-not-met-only",
                         "Gate fires on NOT_MET must-haves only; UNCLEAR no longer fatal",
