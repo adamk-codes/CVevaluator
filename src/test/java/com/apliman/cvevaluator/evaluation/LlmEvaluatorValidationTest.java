@@ -88,6 +88,91 @@ class LlmEvaluatorValidationTest {
                 .doesNotThrowAnyException();
     }
 
+    // --- reasoning -------------------------------------------------------
+
+    @Test
+    void aMissingReasoningOnAnAssessmentIsRejected() {
+        List<RequirementAssessment> assessments = List.of(
+                assessment("R1", RequirementKind.MUST_HAVE, RequirementStatus.MET),
+                new RequirementAssessment("R2", "Kafka", RequirementKind.NICE_TO_HAVE,
+                        null, RequirementStatus.PARTIAL, "Kafka, Kubernetes"));
+
+        assertThatThrownBy(() -> LlmEvaluator.validate(REQUIREMENTS,
+                new LlmEvaluationResponse(assessments, dimensionScores(), validSummary())))
+                .isInstanceOf(EvaluationParseException.class)
+                .hasMessageContaining("no reasoning for requirement 'R2'");
+    }
+
+    @Test
+    void aBlankReasoningOnAnAssessmentIsRejected() {
+        List<RequirementAssessment> assessments = List.of(
+                assessment("R1", RequirementKind.MUST_HAVE, RequirementStatus.MET),
+                new RequirementAssessment("R2", "Kafka", RequirementKind.NICE_TO_HAVE,
+                        "   ", RequirementStatus.PARTIAL, "Kafka, Kubernetes"));
+
+        assertThatThrownBy(() -> LlmEvaluator.validate(REQUIREMENTS,
+                new LlmEvaluationResponse(assessments, dimensionScores(), validSummary())))
+                .isInstanceOf(EvaluationParseException.class)
+                .hasMessageContaining("no reasoning");
+    }
+
+    /**
+     * The placeholder case. Well-formed, ordered correctly, and not an argument
+     * — nothing else in the pipeline would notice.
+     */
+    @Test
+    void aNonAnswerReasoningIsRejected() {
+        List<RequirementAssessment> assessments = List.of(
+                assessment("R1", RequirementKind.MUST_HAVE, RequirementStatus.MET),
+                new RequirementAssessment("R2", "Kafka", RequirementKind.NICE_TO_HAVE,
+                        "N/A", RequirementStatus.PARTIAL, "Kafka, Kubernetes"));
+
+        assertThatThrownBy(() -> LlmEvaluator.validate(REQUIREMENTS,
+                new LlmEvaluationResponse(assessments, dimensionScores(), validSummary())))
+                .isInstanceOf(EvaluationParseException.class)
+                .hasMessageContaining("too short to be an argument");
+    }
+
+    /**
+     * The floor must not punish a terse but complete answer. "Not mentioned."
+     * is the whole truth for an UNCLEAR and has to pass.
+     */
+    @Test
+    void aShortButRealReasoningPasses() {
+        List<RequirementAssessment> assessments = List.of(
+                assessment("R1", RequirementKind.MUST_HAVE, RequirementStatus.MET),
+                new RequirementAssessment("R2", "Kafka", RequirementKind.NICE_TO_HAVE,
+                        "Not mentioned.", RequirementStatus.UNCLEAR, null));
+
+        assertThatCode(() -> LlmEvaluator.validate(REQUIREMENTS,
+                new LlmEvaluationResponse(assessments, dimensionScores(), validSummary())))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void aMissingReasoningOnADimensionScoreIsRejected() {
+        List<DimensionScore> scores = List.of(
+                new DimensionScore(ScoreDimension.IMPACT_AND_OWNERSHIP, null, 4, null),
+                new DimensionScore(ScoreDimension.COMMUNICATION_QUALITY, "Specific throughout.", 5, null));
+
+        assertThatThrownBy(() -> LlmEvaluator.validate(REQUIREMENTS,
+                new LlmEvaluationResponse(response().requirementAssessments(), scores, validSummary())))
+                .isInstanceOf(EvaluationParseException.class)
+                .hasMessageContaining("IMPACT_AND_OWNERSHIP");
+    }
+
+    @Test
+    void aNonAnswerReasoningOnADimensionScoreIsRejected() {
+        List<DimensionScore> scores = List.of(
+                new DimensionScore(ScoreDimension.IMPACT_AND_OWNERSHIP, "Good", 4, null),
+                new DimensionScore(ScoreDimension.COMMUNICATION_QUALITY, "Specific throughout.", 5, null));
+
+        assertThatThrownBy(() -> LlmEvaluator.validate(REQUIREMENTS,
+                new LlmEvaluationResponse(response().requirementAssessments(), scores, validSummary())))
+                .isInstanceOf(EvaluationParseException.class)
+                .hasMessageContaining("too short to be an argument");
+    }
+
     // --- requirement ids -------------------------------------------------
 
     @Test
@@ -160,8 +245,8 @@ class LlmEvaluatorValidationTest {
     @Test
     void aScoreOutsideZeroToFiveIsRejected() {
         List<DimensionScore> scores = List.of(
-                new DimensionScore(ScoreDimension.IMPACT_AND_OWNERSHIP, "reasoning", 7, null),
-                new DimensionScore(ScoreDimension.COMMUNICATION_QUALITY, "reasoning", 4, null));
+                new DimensionScore(ScoreDimension.IMPACT_AND_OWNERSHIP, "Owns outcomes.", 7, null),
+                new DimensionScore(ScoreDimension.COMMUNICATION_QUALITY, "Specific throughout.", 4, null));
 
         assertThatThrownBy(() -> LlmEvaluator.validate(REQUIREMENTS,
                 new LlmEvaluationResponse(response().requirementAssessments(), scores, validSummary())))
@@ -172,7 +257,7 @@ class LlmEvaluatorValidationTest {
     @Test
     void aMissingDimensionIsRejected() {
         List<DimensionScore> scores = List.of(
-                new DimensionScore(ScoreDimension.IMPACT_AND_OWNERSHIP, "reasoning", 4, null));
+                new DimensionScore(ScoreDimension.IMPACT_AND_OWNERSHIP, "Owns outcomes.", 4, null));
 
         assertThatThrownBy(() -> LlmEvaluator.validate(REQUIREMENTS,
                 new LlmEvaluationResponse(response().requirementAssessments(), scores, validSummary())))

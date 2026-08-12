@@ -73,6 +73,24 @@ public class LlmEvaluator {
      */
     private static final int MINIMUM_SUMMARY_LENGTH = 40;
 
+    /**
+     * The shortest reasoning that can be an argument rather than a placeholder.
+     *
+     * <p>Much lower than {@link #MINIMUM_SUMMARY_LENGTH}, and for a real reason
+     * rather than caution: a summary covers a whole CV and is never legitimately
+     * short, but a single requirement can be honestly disposed of in three
+     * words. {@code "Not mentioned."} is fourteen characters and a complete
+     * answer for an {@code UNCLEAR}. Ten catches {@code "N/A"}, {@code "Yes"}
+     * and {@code "Met"} — the non-answers — without punishing terseness that is
+     * doing its job.
+     *
+     * <p>This is the floor on <em>presence</em>, not on quality. Nothing here
+     * can tell a real argument from ten characters of filler; what it
+     * guarantees is that the field the whole reasoning-before-verdict ordering
+     * exists to produce was not left empty.
+     */
+    private static final int MINIMUM_REASONING_LENGTH = 10;
+
     private final ChatClient chatClient;
     private final VerdictCalculator verdictCalculator;
     private final boolean apiKeyConfigured;
@@ -364,6 +382,13 @@ public class LlmEvaluator {
                         "The model returned no status for requirement '" + id + "'.");
             }
 
+            // The field the whole design rests on. Declaring reasoning before
+            // status forces the model to write its argument before committing
+            // to a verdict - but that only holds if it writes one. An empty
+            // reasoning satisfies the ordering while defeating the point of it,
+            // and every structural check around it would still pass.
+            requireReasoning(assessment.reasoning(), "requirement '" + id + "'");
+
             // The null-quote rule, enforced rather than requested. A quote on a
             // NOT_MET or an UNCLEAR is either irrelevant or invented: there is
             // no span of a CV that demonstrates something is absent from it.
@@ -388,6 +413,24 @@ public class LlmEvaluator {
 
         validateDimensions(body.dimensionScores());
         validateSummary(body.summary());
+    }
+
+    /**
+     * Shared by both places reasoning appears, so the two cannot drift apart.
+     *
+     * @param subject named in the message so the failure says which requirement
+     *                or dimension was the empty one
+     */
+    private static void requireReasoning(String reasoning, String subject) {
+        if (!StringUtils.hasText(reasoning)) {
+            throw new EvaluationParseException(
+                    "The model gave no reasoning for " + subject + ".");
+        }
+        if (reasoning.strip().length() < MINIMUM_REASONING_LENGTH) {
+            throw new EvaluationParseException(
+                    "The model's reasoning for " + subject + " is " + reasoning.strip().length()
+                            + " characters, which is too short to be an argument.");
+        }
     }
 
     /**
@@ -437,6 +480,7 @@ public class LlmEvaluator {
                         "The model scored " + score.dimension() + " as " + score.score()
                                 + ", which is outside 0-5.");
             }
+            requireReasoning(score.reasoning(), String.valueOf(score.dimension()));
         }
 
         Set<ScoreDimension> missing = EnumSet.allOf(ScoreDimension.class);
