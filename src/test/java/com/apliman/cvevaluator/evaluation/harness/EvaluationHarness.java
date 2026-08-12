@@ -2,6 +2,7 @@ package com.apliman.cvevaluator.evaluation.harness;
 
 import com.apliman.cvevaluator.evaluation.AssessmentRubric;
 import com.apliman.cvevaluator.evaluation.EvaluationResult;
+import com.apliman.cvevaluator.evaluation.GroundingChecker;
 import com.apliman.cvevaluator.evaluation.LlmEvaluator;
 import com.apliman.cvevaluator.evaluation.RequirementAssessment;
 import com.apliman.cvevaluator.evaluation.RequirementStatus;
@@ -208,7 +209,7 @@ class EvaluationHarness {
             .withPropertyValues(provider.propertyValues());
 
     @Configuration(proxyBeanMethods = false)
-    @Import({AssessmentRubric.class, VerdictCalculator.class, LlmEvaluator.class})
+    @Import({AssessmentRubric.class, VerdictCalculator.class, GroundingChecker.class, LlmEvaluator.class})
     static class EvaluationBeans {
     }
 

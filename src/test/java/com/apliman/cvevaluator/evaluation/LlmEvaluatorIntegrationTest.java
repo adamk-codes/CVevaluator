@@ -70,7 +70,7 @@ class LlmEvaluatorIntegrationTest {
                     "spring.ai.google.genai.chat.options.model=gemini-2.5-flash");
 
     @Configuration(proxyBeanMethods = false)
-    @Import({AssessmentRubric.class, VerdictCalculator.class, LlmEvaluator.class})
+    @Import({AssessmentRubric.class, VerdictCalculator.class, GroundingChecker.class, LlmEvaluator.class})
     static class EvaluationBeans {
     }
 

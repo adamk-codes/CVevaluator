@@ -93,12 +93,14 @@ public class LlmEvaluator {
 
     private final ChatClient chatClient;
     private final VerdictCalculator verdictCalculator;
+    private final GroundingChecker groundingChecker;
     private final boolean apiKeyConfigured;
 
     public LlmEvaluator(
             ChatClient.Builder chatClientBuilder,
             AssessmentRubric rubric,
             VerdictCalculator verdictCalculator,
+            GroundingChecker groundingChecker,
             @Value("${spring.ai.google.genai.api-key:}") String apiKey
     ) {
         this.apiKeyConfigured = StringUtils.hasText(apiKey) && !NOT_CONFIGURED.equals(apiKey);
@@ -122,6 +124,7 @@ public class LlmEvaluator {
                 .defaultOptions(ChatOptions.builder().temperature(TEMPERATURE))
                 .build();
         this.verdictCalculator = verdictCalculator;
+        this.groundingChecker = groundingChecker;
     }
 
     /**
@@ -132,16 +135,15 @@ public class LlmEvaluator {
      *               edited while this call is in flight.
      * @param cvText <strong>pass {@code Application.redactedText}, never
      *               {@code extractedText}.</strong> Two reasons, and the second
-     *               is the one that breaks silently. First, PII must not leave
-     *               the process — that is a project rule. Second, the grounding
-     *               checker coming on D3 fuzzy-matches every
-     *               {@code evidenceQuote} against the CV text to prove the quote
-     *               is real; it must be given the same text the model saw. Feed
-     *               the model redacted text and check quotes against the
-     *               unredacted original and every quote drawn from a line
-     *               containing an email or a phone number fails to match, and
-     *               the checker reports fabrication on quotes that were copied
-     *               perfectly.
+     *               now fails loudly rather than silently. First, PII must not
+     *               leave the process — that is a project rule. Second, this
+     *               same text is what {@link GroundingChecker} matches every
+     *               {@code evidenceQuote} against, so it must be the text the
+     *               model actually saw. Feed the model redacted text and check
+     *               quotes against the unredacted original and every quote drawn
+     *               from a line containing an email or a phone number fails to
+     *               match — the evaluation is then rejected for fabrication on
+     *               quotes that were copied perfectly.
      * @throws EvaluationParseException if the model's response is unusable
      */
     public EvaluationResult evaluate(Job job, String cvText) {
@@ -184,6 +186,7 @@ public class LlmEvaluator {
         }
 
         validate(requirements, body);
+        requireGrounded(body.requirementAssessments(), cvText);
 
         Usage usage = usageOf(response.getResponse());
         EvaluationResult result = new EvaluationResult(
@@ -413,6 +416,52 @@ public class LlmEvaluator {
 
         validateDimensions(body.dimensionScores());
         validateSummary(body.summary());
+    }
+
+    /**
+     * Rejects the whole evaluation if any quote is not in the CV.
+     *
+     * <h2>Why rejecting, rather than dropping the quote</h2>
+     *
+     * The gentler options were considered and are worse. Blanking an ungrounded
+     * quote and keeping the status leaves an assessment asserting something
+     * about a candidate with nothing behind it — the exact shape of claim this
+     * project exists to make impossible. Downgrading the status silently edits
+     * a finding the model did not make. Storing it flagged means a fabricated
+     * quote reaches a recruiter and relies on them noticing a badge.
+     *
+     * <p>Rejecting is also the cheap option operationally: the batch trigger
+     * already catches {@link EvaluationParseException} per application, so one
+     * rejected evaluation costs one row that is not written, and the
+     * application keeps whatever evaluation it had. Nothing is corrupted and
+     * nothing is lost.
+     *
+     * <p><strong>The consequence to watch.</strong> On the fixture corpus one
+     * model grounded 147 of 147 quotes; another merged non-adjacent lines and
+     * grounded 22 of 28. Under this check the second model's evaluations now
+     * fail rather than storing quotes that were never in the CV. That is the
+     * intended behaviour and it will look like a regression in the failure
+     * count — the failures were always there, they were just invisible.
+     */
+    private void requireGrounded(List<RequirementAssessment> assessments, String cvText) {
+        List<GroundingChecker.Ungrounded> ungrounded = groundingChecker.check(assessments, cvText);
+        if (ungrounded.isEmpty()) {
+            return;
+        }
+
+        GroundingChecker.Ungrounded first = ungrounded.getFirst();
+
+        // The quote goes to the log, not to the exception message. It is CV
+        // content, the message becomes the failure reason on a row that a
+        // client can read, and a fabricated quote is still built from the
+        // candidate's own document.
+        log.warn("Grounding failed on {} quote(s); first was {} -> \"{}\"",
+                ungrounded.size(), first.requirementId(), first.quote());
+
+        throw new EvaluationParseException(
+                ungrounded.size() + " evidence quote(s) could not be found in the CV, starting with "
+                        + "requirement '" + first.requirementId() + "'. A quote must be copied from "
+                        + "the CV exactly.");
     }
 
     /**
