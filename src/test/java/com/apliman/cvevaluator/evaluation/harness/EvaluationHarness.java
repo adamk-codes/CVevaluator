@@ -79,7 +79,18 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   <li>{@code -Dcvevaluator.harness.label=batched-4} — names the run in the
  *       report filename and header, so two configurations can be told apart
  *       afterwards
+ *   <li>{@code -Dcvevaluator.harness.delay-ms=6000} — pace the calls, for a key
+ *       whose tier cannot sustain a full run back to back
  * </ul>
+ *
+ * <h2>Quota is the binding constraint</h2>
+ *
+ * A full run is 60 paid calls, and the plan behind this needs several of them:
+ * a baseline, a repeat of the baseline to establish how much the score moves on
+ * its own, and one per configuration under test. That is comfortably into the
+ * hundreds of calls, and the first full run here died of a 429 seven pairs in.
+ * Check the tier the key is on before scheduling a comparison — the harness
+ * cannot measure anything the quota will not pay for.
  */
 @EnabledIfEnvironmentVariable(named = "GEMINI_API_KEY", matches = ".+")
 @EnabledIfSystemProperty(named = "cvevaluator.harness", matches = "true")
@@ -89,6 +100,16 @@ class EvaluationHarness {
     private static final Path REPORTS = Path.of("harness-reports");
 
     private static final String MODEL = "gemini-2.5-flash";
+
+    /**
+     * Consecutive failures before the run gives up on the whole corpus.
+     *
+     * <p>Five. One or two in a row is a bad response or a blip and the run
+     * should carry on; five is the environment being broken - an exhausted
+     * quota, a revoked key, no network - and none of those clear up while the
+     * loop keeps hammering them.
+     */
+    private static final int CONSECUTIVE_FAILURE_LIMIT = 5;
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(
@@ -120,10 +141,29 @@ class EvaluationHarness {
 
             System.out.printf("Harness: %d pair(s) to evaluate. This will take a while.%n", pairs.size());
 
+            int consecutiveFailures = 0;
             for (int i = 0; i < pairs.size(); i++) {
                 HarnessManifest.Pair pair = pairs.get(i);
                 System.out.printf("  [%d/%d] %s vs %s%n", i + 1, pairs.size(), pair.cvName(), pair.jobId());
-                report.add(evaluate(evaluator, pair));
+
+                HarnessReport.PairResult result = evaluate(evaluator, pair);
+                report.add(result);
+
+                // Stop rather than grind on. The first full run exhausted the
+                // API quota seven pairs in and then spent fifteen minutes
+                // collecting fifty-three identical 429s - burning wall time to
+                // produce nothing, and making the report look like a grading
+                // catastrophe rather than an infrastructure one. Nothing that
+                // fails this consistently recovers within the same run.
+                consecutiveFailures = result.failed() ? consecutiveFailures + 1 : 0;
+                if (consecutiveFailures >= CONSECUTIVE_FAILURE_LIMIT) {
+                    System.out.printf("%nABORTED after %d consecutive failures at pair %d of %d.%n"
+                                    + "This is the environment, not the grading. Last error:%n  %s%n",
+                            consecutiveFailures, i + 1, pairs.size(), result.error());
+                    break;
+                }
+
+                pauseBetweenCalls();
             }
 
             System.out.println(report.console());
@@ -168,12 +208,39 @@ class EvaluationHarness {
                     null);
 
         } catch (RuntimeException | IOException e) {
-            System.out.printf("      failed: %s%n", e.getMessage());
+            String description = describe(e);
+            System.out.printf("      failed: %s%n", description);
             return new HarnessReport.PairResult(
                     pair.cvName(), pair.candidate(), pair.jobId(), pair.expected(),
                     null, 0, 0, List.of(), 0, 0, 0L,
-                    e.getClass().getSimpleName() + ": " + e.getMessage());
+                    description);
         }
+    }
+
+    /**
+     * The whole cause chain, not just the outermost message.
+     *
+     * <p>Learned the hard way on the first full run: {@code LlmEvaluator} wraps
+     * everything the call can throw in one {@code EvaluationParseException} with
+     * a fixed message, which is right for a caller that only needs to know the
+     * response was unusable. For a diagnostic run it is useless — 53 identical
+     * lines saying "could not be read" name neither a rate limit, nor a timeout,
+     * nor a schema violation, and those need completely different responses.
+     */
+    private static String describe(Throwable error) {
+        StringBuilder description = new StringBuilder();
+        for (Throwable current = error; current != null; current = current.getCause()) {
+            if (!description.isEmpty()) {
+                description.append(" <- ");
+            }
+            description.append(current.getClass().getSimpleName())
+                    .append(": ")
+                    .append(current.getMessage());
+            if (current.getCause() == current) {
+                break;
+            }
+        }
+        return description.toString();
     }
 
     /**
@@ -249,6 +316,30 @@ class EvaluationHarness {
         }
         int limit = Math.min(Integer.parseInt(sample.trim()), all.size());
         return all.subList(0, limit);
+    }
+
+    /**
+     * Optional gap between calls, via
+     * {@code -Dcvevaluator.harness.delay-ms=6000}.
+     *
+     * <p>Off by default, because the pacing needed depends entirely on the tier
+     * the key is on and guessing wrong just makes every run slower for nothing.
+     * A free-tier key with a low requests-per-minute allowance needs this; a
+     * paid one does not. Sequential evaluation already spaces calls about
+     * twenty seconds apart, so this exists for a per-day or per-minute cap that
+     * spacing alone cannot satisfy.
+     */
+    private static void pauseBetweenCalls() {
+        String delay = System.getProperty("cvevaluator.harness.delay-ms");
+        if (!StringUtils.hasText(delay)) {
+            return;
+        }
+        try {
+            Thread.sleep(Long.parseLong(delay.trim()));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while pacing harness calls", e);
+        }
     }
 
     private static String normalised(String text) {
