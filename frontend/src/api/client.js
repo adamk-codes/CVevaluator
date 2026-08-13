@@ -56,9 +56,10 @@ async function handle(response) {
 }
 
 function request(path, { method = 'GET', body, isMultipart = false } = {}) {
-  // Whatever identifies the caller comes from the auth seam - today an
-  // X-User-Id header, later a bearer token. This file deliberately does not
-  // know which. See src/auth/session.js.
+  // Whatever identifies the caller comes from the auth seam. This file does not
+  // know that it is currently a bearer token, and did not know when it was an
+  // X-User-Id header - which is why swapping one for the other did not touch it.
+  // See src/auth/session.js.
   const headers = { ...authHeaders() }
 
   // fetch sets multipart/form-data itself, including the boundary. Setting
