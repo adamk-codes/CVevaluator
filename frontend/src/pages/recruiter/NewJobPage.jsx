@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useCreateJob } from '../api/queries'
+import { useCreateJob } from '../../api/queries'
 import RequirementsEditor, {
   emptyRequirement,
   toPayload,
   validationError,
-} from '../components/RequirementsEditor'
-import { ErrorAlert } from '../components/ui'
+} from '../../components/RequirementsEditor'
+import { ErrorAlert } from '../../components/ui'
 
 export default function NewJobPage() {
   const navigate = useNavigate()

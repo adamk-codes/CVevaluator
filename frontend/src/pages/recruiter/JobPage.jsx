@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { useApplications, useJob, useReplaceRequirements, isInFlight } from '../api/queries'
-import RequirementsEditor, { toPayload, validationError } from '../components/RequirementsEditor'
-import CvUpload from '../components/CvUpload'
-import { Badge, Empty, ErrorAlert, Spinner, formatBytes, formatDate } from '../components/ui'
+import { useApplications, useJob, useReplaceRequirements, isInFlight } from '../../api/queries'
+import RequirementsEditor, { toPayload, validationError } from '../../components/RequirementsEditor'
+import { Badge, Empty, ErrorAlert, Spinner, formatBytes, formatDate } from '../../components/ui'
 
 export default function JobPage() {
   const { jobId } = useParams()
@@ -39,14 +38,6 @@ export default function JobPage() {
 
       <div className="stack">
         <RequirementsCard job={job} />
-
-        <div className="card">
-          <div className="card-head">
-            <h2>Submit a CV</h2>
-          </div>
-          <CvUpload jobId={jobId} />
-        </div>
-
         <ApplicationsCard jobId={jobId} />
       </div>
     </main>

@@ -4,7 +4,7 @@ import {
   useApplication,
   useEvaluation,
   useEvaluationHistory,
-} from '../api/queries'
+} from '../../api/queries'
 import {
   Badge,
   Empty,
@@ -13,7 +13,7 @@ import {
   Spinner,
   formatDate,
   humanise,
-} from '../components/ui'
+} from '../../components/ui'
 
 const DIMENSION_LABELS = {
   IMPACT_AND_OWNERSHIP: 'Impact & ownership',

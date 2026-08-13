@@ -9,6 +9,7 @@ export const keys = {
   jobs: ['jobs'],
   job: (jobId) => ['jobs', jobId],
   applications: (jobId) => ['jobs', jobId, 'applications'],
+  myApplications: ['me', 'applications'],
   application: (jobId, applicationId) => ['jobs', jobId, 'applications', applicationId],
   evaluation: (applicationId) => ['applications', applicationId, 'evaluation'],
   evaluationHistory: (applicationId) => ['applications', applicationId, 'evaluations'],
@@ -95,7 +96,25 @@ export function useSubmitCv(jobId) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (file) => api.submitCv(jobId, file),
-    onSuccess: () => client.invalidateQueries({ queryKey: keys.applications(jobId) }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: keys.applications(jobId) })
+      client.invalidateQueries({ queryKey: keys.myApplications })
+    },
+  })
+}
+
+/**
+ * The signed-in candidate's own submissions, polled while any is still moving.
+ *
+ * Same self-terminating interval as {@link useApplications}: a screen where
+ * everything has reached a terminal state stops asking.
+ */
+export function useMyApplications() {
+  return useQuery({
+    queryKey: keys.myApplications,
+    queryFn: api.listMyApplications,
+    refetchInterval: (query) =>
+      query.state.data?.some((app) => isInFlight(app.status)) ? 2000 : false,
   })
 }
 

@@ -1,3 +1,5 @@
+import { authHeaders, loadSession } from '../auth/session'
+
 /**
  * The one place that talks to the backend.
  *
@@ -15,25 +17,6 @@ export class ApiError extends Error {
     this.name = 'ApiError'
     this.status = status
   }
-}
-
-/**
- * Auth is stubbed by design: the backend reads `X-User-Id` via
- * HeaderCurrentUserProvider and there is no login. The id lives in
- * localStorage so a page reload keeps it, and the header switcher writes it.
- *
- * data.sql seeds exactly one user - the recruiter, id 1 - so that is the
- * default. Sending an id with no matching row gets a 400 "Current user not
- * found", not a 500, which is why the user switcher is safe to expose.
- */
-const USER_ID_KEY = 'cvevaluator.userId'
-
-export function currentUserId() {
-  return localStorage.getItem(USER_ID_KEY) ?? '1'
-}
-
-export function setCurrentUserId(id) {
-  localStorage.setItem(USER_ID_KEY, String(id))
 }
 
 /**
@@ -57,7 +40,10 @@ async function handle(response) {
 }
 
 function request(path, { method = 'GET', body, isMultipart = false } = {}) {
-  const headers = { 'X-User-Id': currentUserId() }
+  // Whatever identifies the caller comes from the auth seam - today an
+  // X-User-Id header, later a bearer token. This file deliberately does not
+  // know which. See src/auth/session.js.
+  const headers = { ...authHeaders() }
 
   // fetch sets multipart/form-data itself, including the boundary. Setting
   // Content-Type by hand here omits the boundary and Spring rejects the whole
@@ -94,14 +80,78 @@ export const listApplications = (jobId) => request(`/api/jobs/${jobId}/applicati
 export const getApplication = (jobId, applicationId) =>
   request(`/api/jobs/${jobId}/applications/${applicationId}`)
 
-export function submitCv(jobId, file) {
+export async function submitCv(jobId, file) {
   const form = new FormData()
   form.append('file', file)
-  return request(`/api/jobs/${jobId}/applications`, {
+  const created = await request(`/api/jobs/${jobId}/applications`, {
     method: 'POST',
     body: form,
     isMultipart: true,
   })
+  remember(jobId, created.id)
+  return created
+}
+
+/* ------------------------------------------ a candidate's own submissions --- */
+
+/**
+ * MISSING ENDPOINT — the backend has no "my applications" resource.
+ *
+ * <p>{@code GET /api/jobs/{jobId}/applications} is the recruiter's list and
+ * returns <em>every</em> candidate's submission on that job. Calling it from a
+ * candidate screen and filtering in the browser would put other people's
+ * submissions in this user's memory and network log, which is a data leak
+ * whether or not the UI draws them. So it is not used here.
+ *
+ * <p>Instead each submission this browser makes is remembered locally, and the
+ * list is rebuilt by asking for those ids individually through the
+ * already-scoped per-application endpoint. Nothing about anyone else is ever
+ * requested.
+ *
+ * <p><strong>The limitation, stated plainly:</strong> this is per-browser. Sign
+ * in from a different machine, or clear site data, and the candidate's history
+ * looks empty even though the rows exist. That is why the screen says so rather
+ * than presenting the list as authoritative.
+ *
+ * <p>SWAP — when {@code GET /api/me/applications} (or equivalent) exists, the
+ * body of this function becomes a single {@code request(...)} call and
+ * {@link remember} can be deleted along with its two call sites.
+ */
+export async function listMyApplications() {
+  const remembered = readRemembered()
+
+  const settled = await Promise.allSettled(
+    remembered.map(({ jobId, applicationId }) => getApplication(jobId, applicationId)),
+  )
+
+  // Rejections are dropped rather than surfaced: a remembered id can legitimately
+  // be gone (deleted job, wiped dev database), and one stale entry must not blank
+  // the whole page.
+  return settled
+    .filter((outcome) => outcome.status === 'fulfilled')
+    .map((outcome) => outcome.value)
+    .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
+}
+
+/** Scoped per user id, so two accounts on one browser do not see each other's list. */
+const rememberKey = () => `cvevaluator.submissions.${loadSession()?.user?.id ?? 'anonymous'}`
+
+function readRemembered() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(rememberKey()) ?? '[]')
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function remember(jobId, applicationId) {
+  const existing = readRemembered()
+  if (existing.some((entry) => entry.applicationId === applicationId)) return
+  localStorage.setItem(
+    rememberKey(),
+    JSON.stringify([...existing, { jobId: Number(jobId), applicationId }]),
+  )
 }
 
 /* --------------------------------------------------------- evaluations --- */

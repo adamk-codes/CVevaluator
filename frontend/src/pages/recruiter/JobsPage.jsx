@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import { useJobs } from '../api/queries'
-import { Empty, ErrorAlert, Spinner, formatDate } from '../components/ui'
+import { useJobs } from '../../api/queries'
+import { Empty, ErrorAlert, Spinner, formatDate } from '../../components/ui'
 
 export default function JobsPage() {
   const { data: jobs, isPending, error } = useJobs()
