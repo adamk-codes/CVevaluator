@@ -111,6 +111,33 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
     List<ApplicationStatusResponse> findSummariesByCandidateId(@Param("candidateId") Long candidateId);
 
     /**
+     * Where one CV's file lives, for a caller entitled to read it.
+     *
+     * <p>Same visibility predicate as {@link #findSummaryVisibleTo} and
+     * deliberately so — the file and its status answer to one rule, and two
+     * predicates that must agree are one edit away from not agreeing. A
+     * candidate may fetch their own submission back; a recruiter may fetch any
+     * submission on a job they posted.
+     *
+     * <p>Returns the storage key rather than a path. Turning a key into a path
+     * is {@code StorageService.load}'s job, and it is the only place the
+     * traversal check lives — a controller that built its own path from this
+     * value would be the one caller that skipped it.
+     */
+    @Query("""
+            select new com.apliman.cvevaluator.application.CvFileLocation(
+                a.storagePath, a.originalFilename)
+            from Application a
+            where a.id = :applicationId
+              and a.job.id = :jobId
+              and (a.candidate.id = :userId or a.job.createdByRecruiter.id = :userId)
+            """)
+    Optional<CvFileLocation> findFileVisibleTo(
+            @Param("applicationId") Long applicationId,
+            @Param("jobId") Long jobId,
+            @Param("userId") Long userId);
+
+    /**
      * This application, but only if this recruiter posted the job it was
      * submitted against.
      *

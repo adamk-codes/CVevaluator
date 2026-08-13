@@ -13,6 +13,8 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Optional;
 
@@ -24,6 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -179,5 +182,109 @@ class ApplicationControllerAuthorizationTest {
                 .andExpect(status().isUnauthorized());
 
         verify(applicationRepository, never()).findSummaryVisibleTo(anyLong(), anyLong(), anyLong());
+    }
+
+    /**
+     * The owning recruiter reads the document, and the response says what it is
+     * without trusting the uploader about it.
+     *
+     * <p>The content type asserted here comes from the extension, not from the
+     * {@code contentType} column — that column holds whatever the uploading
+     * client sent. {@code nosniff} is asserted for the same reason: between
+     * them they decide how a browser treats somebody else's bytes on this
+     * origin.
+     */
+    @Test
+    void file_owningRecruiter_getsThePdfInlineAndTyped() throws Exception {
+        Path stored = Files.createTempFile("cv", ".pdf");
+        Files.write(stored, "%PDF-1.4 pretend".getBytes());
+
+        when(applicationRepository.findFileVisibleTo(5L, 1L, RECRUITER_ID))
+                .thenReturn(Optional.of(new CvFileLocation("a-uuid.pdf", "rami cv.pdf")));
+        when(storageService.load("a-uuid.pdf")).thenReturn(stored);
+
+        mockMvc.perform(get("/api/jobs/1/applications/5/file").with(TestTokens.recruiter(RECRUITER_ID)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string("Content-Disposition", "inline; filename=\"rami cv.pdf\""));
+
+        Files.deleteIfExists(stored);
+    }
+
+    /** Anything not positively meant to render in the page downloads instead. */
+    @Test
+    void file_txt_downloadsRatherThanRendering() throws Exception {
+        Path stored = Files.createTempFile("cv", ".txt");
+        Files.write(stored, "plain text cv".getBytes());
+
+        when(applicationRepository.findFileVisibleTo(5L, 1L, RECRUITER_ID))
+                .thenReturn(Optional.of(new CvFileLocation("a-uuid.txt", "cv.txt")));
+        when(storageService.load("a-uuid.txt")).thenReturn(stored);
+
+        mockMvc.perform(get("/api/jobs/1/applications/5/file").with(TestTokens.recruiter(RECRUITER_ID)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"cv.txt\""));
+
+        Files.deleteIfExists(stored);
+    }
+
+    /**
+     * A filename is chosen by whoever uploaded it, so it reaches this header as
+     * untrusted text. Quotes and control characters are stripped rather than
+     * escaped — an unstripped quote closes the filename parameter early and
+     * whatever follows is read as further header content.
+     */
+    @Test
+    void file_filenameWithAQuoteCannotBreakOutOfTheHeader() throws Exception {
+        Path stored = Files.createTempFile("cv", ".pdf");
+        Files.write(stored, "%PDF-1.4 pretend".getBytes());
+
+        when(applicationRepository.findFileVisibleTo(5L, 1L, RECRUITER_ID))
+                .thenReturn(Optional.of(new CvFileLocation("a-uuid.pdf", "ev\"il\r\nX-Injected: yes.pdf")));
+        when(storageService.load("a-uuid.pdf")).thenReturn(stored);
+
+        mockMvc.perform(get("/api/jobs/1/applications/5/file").with(TestTokens.recruiter(RECRUITER_ID)))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("X-Injected"))
+                .andExpect(header().string("Content-Disposition", "inline; filename=\"evilX-Injected: yes.pdf\""));
+
+        Files.deleteIfExists(stored);
+    }
+
+    /** A recruiter who did not post the job cannot read its CVs. */
+    @Test
+    void file_recruiterWhoDoesNotOwnTheJob_is404AndNeverTouchesStorage() throws Exception {
+        when(applicationRepository.findFileVisibleTo(5L, 1L, RECRUITER_ID))
+                .thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/jobs/1/applications/5/file").with(TestTokens.recruiter(RECRUITER_ID)))
+                .andExpect(status().isNotFound());
+
+        verify(storageService, never()).load(anyString());
+    }
+
+    /** A candidate may fetch their own document back, which the ownership predicate allows. */
+    @Test
+    void file_candidateReadingTheirOwnSubmission_isAllowed() throws Exception {
+        Path stored = Files.createTempFile("cv", ".pdf");
+        Files.write(stored, "%PDF-1.4 pretend".getBytes());
+
+        when(applicationRepository.findFileVisibleTo(5L, 1L, CANDIDATE_ID))
+                .thenReturn(Optional.of(new CvFileLocation("a-uuid.pdf", "cv.pdf")));
+        when(storageService.load("a-uuid.pdf")).thenReturn(stored);
+
+        mockMvc.perform(get("/api/jobs/1/applications/5/file").with(TestTokens.candidate(CANDIDATE_ID)))
+                .andExpect(status().isOk());
+
+        Files.deleteIfExists(stored);
+    }
+
+    @Test
+    void file_anonymous_is401AndNeverTouchesStorage() throws Exception {
+        mockMvc.perform(get("/api/jobs/1/applications/5/file"))
+                .andExpect(status().isUnauthorized());
+
+        verify(storageService, never()).load(anyString());
     }
 }

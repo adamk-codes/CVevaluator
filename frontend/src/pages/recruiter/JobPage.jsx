@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useApplications, useJob, useReplaceRequirements, isInFlight } from '../../api/queries'
 import RequirementsEditor, { toPayload, validationError } from '../../components/RequirementsEditor'
+import ViewCvButton from '../../components/ViewCvButton'
 import { Badge, Empty, ErrorAlert, Spinner, formatBytes, formatDate } from '../../components/ui'
 
 export default function JobPage() {
@@ -164,6 +165,15 @@ function ApplicationsCard({ jobId }) {
                   <Link to={`/jobs/${jobId}/applications/${app.id}`} className="filename">
                     {app.originalFilename}
                   </Link>
+                  {/* Separate from the filename link on purpose: one opens the
+                      assessment, the other opens the document, and a single
+                      link doing whichever the reader meant would be wrong half
+                      the time. */}
+                  <ViewCvButton
+                    jobId={jobId}
+                    applicationId={app.id}
+                    className="link-button"
+                  />
                   {app.status === 'FAILED' && app.failureReason && (
                     <div className="hint" style={{ color: 'var(--not-met)' }}>
                       {app.failureReason}

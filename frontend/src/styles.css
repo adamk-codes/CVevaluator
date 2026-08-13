@@ -283,6 +283,26 @@ td .filename:hover { text-decoration: underline; }
 
 .numeric { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
+/*
+ * Reads as a link, is a button. The CV request has to carry an Authorization
+ * header, which an anchor cannot do - see openCvFile - so the element is a
+ * button and only the appearance is borrowed.
+ */
+button.link-button {
+  display: block;
+  border: none;
+  background: none;
+  padding: 2px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+button.link-button:hover:not(:disabled) {
+  color: var(--accent);
+  border: none;
+}
+
 /* --------------------------------------------------- evidence & quotes --- */
 
 .assessment {

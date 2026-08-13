@@ -11,6 +11,10 @@ import com.apliman.cvevaluator.storage.StoredFile;
 import com.apliman.cvevaluator.user.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,7 +28,10 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/jobs/{jobId}/applications")
@@ -205,5 +212,99 @@ public class ApplicationController {
         return applicationRepository
                 .findSummaryVisibleTo(applicationId, jobId, currentUserProvider.currentUserId())
                 .orElseThrow(() -> new ApplicationNotFoundException(applicationId));
+    }
+
+    /**
+     * The CV itself, as the candidate uploaded it.
+     *
+     * <p>The recruiter's read of the actual document. Everything else in this
+     * API describes the CV — a status, a verdict, a quote — and none of it
+     * substitutes for reading it, least of all when a recruiter wants to
+     * disagree with an assessment.
+     *
+     * <p>Serves the <em>original</em> file, so it carries whatever contact
+     * details the candidate wrote. That is not a redaction failure: redaction
+     * exists to keep PII away from the model, and this file never goes near
+     * one. A recruiter who cannot see a phone number cannot make a phone call.
+     *
+     * <h2>Serving somebody else's uploaded bytes</h2>
+     *
+     * Three things here are security decisions rather than defaults:
+     *
+     * <ul>
+     *   <li><strong>Content type is derived from the extension</strong>, which
+     *       {@code FileSystemStorageService} has already checked against the
+     *       file's magic bytes. The stored {@code contentType} column is not
+     *       used: it is whatever the uploading client typed, and echoing it
+     *       back lets an uploader choose the type their file is served as.
+     *   <li><strong>{@code nosniff}</strong>, so a browser cannot decide for
+     *       itself that a .txt looks like HTML and render it as a page on this
+     *       origin.
+     *   <li><strong>{@code inline} only for PDF</strong>, which browsers render
+     *       in a sandboxed viewer. DOCX and TXT download instead. A .txt shown
+     *       inline is served as text/plain and is not executed, but attachment
+     *       is the safer default for anything this application does not
+     *       positively want rendered.
+     * </ul>
+     *
+     * <p>The filename in the header is the candidate's, quoted and stripped of
+     * quotes and control characters — an unescaped one would let a chosen
+     * filename inject header fields.
+     */
+    @GetMapping("/{applicationId}/file")
+    public ResponseEntity<Resource> file(
+            @PathVariable Long jobId,
+            @PathVariable Long applicationId
+    ) {
+        CvFileLocation location = applicationRepository
+                .findFileVisibleTo(applicationId, jobId, currentUserProvider.currentUserId())
+                .orElseThrow(() -> new ApplicationNotFoundException(applicationId));
+
+        // load() applies the traversal check. A row written by an older build,
+        // or a file removed from disk underneath us, surfaces as StorageException
+        // and becomes a 500 with a fixed message - see GlobalExceptionHandler.
+        Path path = storageService.load(location.storageKey());
+
+        MediaType contentType = contentTypeOf(location.originalFilename());
+        boolean renderInline = MediaType.APPLICATION_PDF.equals(contentType);
+
+        return ResponseEntity.ok()
+                .contentType(contentType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition
+                        .builder(renderInline ? "inline" : "attachment")
+                        .filename(safeFilename(location.originalFilename()))
+                        .build()
+                        .toString())
+                .header("X-Content-Type-Options", "nosniff")
+                .body(new FileSystemResource(path));
+    }
+
+    /**
+     * From the extension, which the signature validator has already matched
+     * against the file's leading bytes. Anything else is served as bytes with
+     * no claimed meaning, which is the right answer for a file whose extension
+     * the allowlist should have refused.
+     */
+    private static MediaType contentTypeOf(String filename) {
+        String lower = filename == null ? "" : filename.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".pdf")) {
+            return MediaType.APPLICATION_PDF;
+        }
+        if (lower.endsWith(".docx")) {
+            return MediaType.parseMediaType(
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        }
+        if (lower.endsWith(".txt")) {
+            return new MediaType(MediaType.TEXT_PLAIN, StandardCharsets.UTF_8);
+        }
+        return MediaType.APPLICATION_OCTET_STREAM;
+    }
+
+    /** Strips what would otherwise let a filename break out of the header. */
+    private static String safeFilename(String filename) {
+        if (!StringUtils.hasText(filename)) {
+            return "cv";
+        }
+        return filename.replaceAll("[\\p{Cntrl}\"\\\\]", "").trim();
     }
 }

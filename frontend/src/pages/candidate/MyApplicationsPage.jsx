@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useMyApplications } from '../../api/queries'
+import ViewCvButton from '../../components/ViewCvButton'
 import { Badge, Empty, ErrorAlert, Spinner, formatBytes, formatDate } from '../../components/ui'
 
 /**
@@ -56,6 +57,11 @@ export default function MyApplicationsPage() {
             <div key={app.id} className="card">
               <div className="card-head" style={{ marginBottom: 10 }}>
                 <h2 style={{ fontSize: '1rem' }}>{app.originalFilename}</h2>
+                {/* Same endpoint as the recruiter's, allowed by the same
+                    ownership rule: a candidate may read back the document they
+                    uploaded. Useful precisely when it FAILED and they need to
+                    see which file they actually sent. */}
+                <ViewCvButton jobId={app.jobId} applicationId={app.id} className="small" />
                 <Badge value={app.status} />
               </div>
 

@@ -5,6 +5,7 @@ import {
   useEvaluation,
   useEvaluationHistory,
 } from '../../api/queries'
+import ViewCvButton from '../../components/ViewCvButton'
 import {
   Badge,
   Empty,
@@ -59,7 +60,13 @@ export default function EvaluationPage() {
             {app.textLength > 0 && ` · ${app.textLength.toLocaleString()} characters`}
           </p>
         </div>
-        <Badge value={app.status} />
+        <div className="row" style={{ gap: 10 }}>
+          {/* The point of reach for "I want to argue with this". Every quote
+              below is a span of the document this opens, so the assessment and
+              its source are one click apart. */}
+          <ViewCvButton jobId={jobId} applicationId={applicationId} />
+          <Badge value={app.status} />
+        </div>
       </div>
 
       <div className="stack">

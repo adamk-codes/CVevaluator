@@ -123,6 +123,38 @@ export function submitCv(jobId, file) {
  */
 export const listMyApplications = () => request('/api/me/applications')
 
+/* ------------------------------------------------------------ the CV file --- */
+
+/**
+ * Opens the stored CV in a new tab, or downloads it for non-PDF formats.
+ *
+ * <p>Fetched and turned into a blob rather than pointed at with an
+ * {@code <a href>}. The endpoint needs an {@code Authorization} header and a
+ * plain link cannot carry one — the browser would send an anonymous request and
+ * get a 401. The alternative, a token in the query string, would put a
+ * credential in history, logs and any Referer the page later sends.
+ *
+ * <p>The object URL is revoked on a timer rather than immediately: revoking it
+ * in the same tick can beat the new tab's own load, and the tab then opens
+ * blank. A minute is far longer than the handover needs and the blob is freed
+ * either way when the page unloads.
+ */
+export async function openCvFile(jobId, applicationId) {
+  const response = await fetch(`/api/jobs/${jobId}/applications/${applicationId}/file`, {
+    headers: authHeaders(),
+  })
+
+  if (!response.ok) {
+    const text = await response.text()
+    const body = text ? JSON.parse(text) : null
+    throw new ApiError(response.status, body?.message ?? 'Could not open the CV.')
+  }
+
+  const url = URL.createObjectURL(await response.blob())
+  window.open(url, '_blank', 'noopener,noreferrer')
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
 /* --------------------------------------------------------- evaluations --- */
 
 /**

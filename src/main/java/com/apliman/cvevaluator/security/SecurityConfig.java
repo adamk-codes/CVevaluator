@@ -136,6 +136,19 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/jobs/*/applications/*")
                                 .authenticated()
 
+                        // The CV file itself. Needs its own line rather than
+                        // being covered by the matcher above: a single * matches
+                        // one path segment, so .../applications/* does not reach
+                        // .../applications/*/file, and without this it would
+                        // fall through to anyRequest().authenticated() - the same
+                        // rule by accident rather than on purpose.
+                        //
+                        // Ownership rather than role, as with the status: the
+                        // candidate who uploaded it may fetch their own document
+                        // back, and a RECRUITER gate here would refuse them.
+                        .requestMatchers(HttpMethod.GET, "/api/jobs/*/applications/*/file")
+                                .authenticated()
+
                         // Evaluations are recruiter-only, entire. A candidate never
                         // sees the model's assessment of their own CV - not the
                         // verdict, not the scores, not the per-requirement
