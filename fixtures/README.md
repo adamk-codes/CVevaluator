@@ -71,10 +71,32 @@ regardless of everything else, so anything arguable was left as
   CV can satisfy either without the other, and a single requirement that a
   candidate half-meets is not something an assessment can answer honestly.
 
-`POST /api/jobs` takes these files as-is:
+`POST /api/jobs` takes these files as-is, but the endpoint is now behind
+authentication and requires a RECRUITER token. The `X-User-Id` header this
+section used to show is gone — `HeaderCurrentUserProvider` was deleted when
+Spring Security went in, and nothing reads that header any more.
+
+Get a token (register once, then log in; both return one):
 
 ```bash
-curl -X POST http://localhost:8080/api/jobs -H 'Content-Type: application/json' -H 'X-User-Id: 1' -d @fixtures/jobs/job-01-backend-engineer.json
+curl -sX POST http://localhost:8080/api/auth/register -H 'Content-Type: application/json' -d '{"name":"Adam","email":"adam.kh@gmail.com","password":"demo1234","role":"RECRUITER"}'
+```
+
+```bash
+TOKEN=$(curl -sX POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' -d '{"email":"adam.kh@gmail.com","password":"demo1234"}' | jq -r .token)
+```
+
+Then post a job with it:
+
+```bash
+curl -X POST http://localhost:8080/api/jobs -H 'Content-Type: application/json' -H "Authorization: Bearer $TOKEN" -d @fixtures/jobs/job-01-backend-engineer.json
+```
+
+Submitting a CV needs a **CANDIDATE** token instead — a recruiter posting to
+`/api/jobs/{id}/applications` gets a 403 by design:
+
+```bash
+curl -X POST http://localhost:8080/api/jobs/1/applications -H "Authorization: Bearer $CANDIDATE_TOKEN" -F 'file=@fixtures/cvs/cv-01.pdf'
 ```
 
 ## CVs

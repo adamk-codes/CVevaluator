@@ -1,9 +1,10 @@
 package com.apliman.cvevaluator.job;
 
+import com.apliman.cvevaluator.auth.InvalidCredentialsException;
 import com.apliman.cvevaluator.job.dto.CreateJobRequest;
 import com.apliman.cvevaluator.job.dto.JobResponse;
 import com.apliman.cvevaluator.job.dto.UpdateJobRequirementsRequest;
-import com.apliman.cvevaluator.security.HeaderCurrentUserProvider;
+import com.apliman.cvevaluator.security.CurrentUserProvider;
 import com.apliman.cvevaluator.user.User;
 import com.apliman.cvevaluator.user.UserRepository;
 import jakarta.validation.Valid;
@@ -12,20 +13,29 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * Job postings.
+ *
+ * <p>The role gate lives in {@code SecurityConfig}: POST and the requirements
+ * PUT are RECRUITER-only, the two GETs are open to any authenticated user so a
+ * candidate can browse. What is enforced <em>here</em> is ownership — that the
+ * recruiter editing a job is the one who posted it — because that needs the row
+ * and a URL rule cannot see it.
+ */
 @RestController
 @RequestMapping("/api/jobs")
 public class JobController {
 
     private final JobRepository repo;
     private final UserRepository userRepo;
-    private final HeaderCurrentUserProvider idProvider;
+    private final CurrentUserProvider idProvider;
     private final JobRequirementsValidator requirementsValidator;
     private final ApplicationReevaluationTrigger reevaluationTrigger;
 
     public JobController(
             JobRepository repo,
             UserRepository userRepo,
-            HeaderCurrentUserProvider idProvider,
+            CurrentUserProvider idProvider,
             JobRequirementsValidator requirementsValidator,
             ApplicationReevaluationTrigger reevaluationTrigger
     ){
@@ -38,8 +48,14 @@ public class JobController {
 
     @PostMapping
     public ResponseEntity<JobResponse> createJob(@Valid @RequestBody CreateJobRequest request){
+        // The recruiter is taken from the token, never from the body. There is
+        // no field a client could send to post a job as someone else.
+        //
+        // A verified token naming a user who is not there means the account was
+        // deleted while the token was still live - a 401 telling them to log in
+        // again, not a 500.
         User recruiter = userRepo.findById(idProvider.currentUserId())
-                .orElseThrow(() -> new IllegalStateException("Current user not found"));
+                .orElseThrow(InvalidCredentialsException::new);
 
         // Validated before the entity is built, not after, so a rejected request
         // never reaches repo.save(). Requirements are authored by the recruiter
@@ -90,13 +106,20 @@ public class JobController {
      * That failure is a race: it passes locally every time. If a transaction is
      * ever needed here, move the trigger to an AFTER_COMMIT event, the way
      * {@code CvIngestionService} already consumes {@code ApplicationCreatedEvent}.
+     *
+     * <p><strong>Ownership is enforced by the lookup.</strong> A recruiter who
+     * did not post this job gets the same 404 as one who named an id that never
+     * existed — see {@link JobRepository#findByIdAndCreatedByRecruiter_Id}. It
+     * matters here more than on a read: editing requirements re-evaluates every
+     * CV on the posting, so an unowned edit would silently rewrite another
+     * recruiter's shortlist.
      */
     @PutMapping("/{id}/requirements")
     public ResponseEntity<JobResponse> replaceRequirements(
             @PathVariable Long id,
             @Valid @RequestBody UpdateJobRequirementsRequest request
     ) {
-        Job job = repo.findById(id)
+        Job job = repo.findByIdAndCreatedByRecruiter_Id(id, idProvider.currentUserId())
                 .orElseThrow(() -> new JobNotFoundException(id));
 
         List<JobRequirement> requirements = requirementsValidator.validateAndNormalise(request.requirements());

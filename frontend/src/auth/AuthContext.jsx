@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import * as session from './session'
 
@@ -6,13 +6,16 @@ import * as session from './session'
  * The only way the rest of the app asks who is signed in.
  *
  * Nothing outside `src/auth/` imports `session.js` directly — that indirection
- * is what keeps the backend auth contract from leaking into screens. See the
- * header of session.js.
+ * is what kept the backend auth contract from leaking into screens, and is why
+ * replacing the stub with real JWTs changed session.js and this file only.
  */
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const queryClient = useQueryClient()
+
+  // Seeded synchronously from storage so a reload renders the signed-in shell
+  // immediately instead of flashing the sign-in screen while /me is in flight.
   const [current, setCurrent] = useState(session.loadSession)
 
   /**
@@ -33,6 +36,31 @@ export function AuthProvider({ children }) {
     },
     [queryClient],
   )
+
+  /**
+   * Confirm the stored token still works, once per page load.
+   *
+   * The optimistic render above is a copy of what was true at sign-in. This
+   * replaces it with the server's answer, and drops the session entirely if the
+   * token has been revoked or the account is gone — otherwise a stale token
+   * renders a working-looking app whose every request 401s.
+   *
+   * Guarded by `active` because in StrictMode the effect runs twice in
+   * development; without it the second pass can apply a result after the first
+   * has already signed the user out.
+   */
+  useEffect(() => {
+    if (!session.loadSession()) return undefined
+
+    let active = true
+    session.restore().then((restored) => {
+      if (!active) return
+      setCurrent(restored)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const value = useMemo(
     () => ({

@@ -2,8 +2,6 @@ import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { homeFor } from '../auth/routes'
-import { AUTH_IS_ENFORCED, knownAccounts } from '../auth/session'
-import { Badge } from '../components/ui'
 
 export default function LoginPage() {
   const { isAuthenticated, role, signIn } = useAuth()
@@ -60,6 +58,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
+              required
             />
           </div>
 
@@ -74,44 +73,6 @@ export default function LoginPage() {
           No account? <Link to="/register">Register</Link>
         </p>
       </div>
-
-      {!AUTH_IS_ENFORCED && (
-        <div className="card" style={{ marginTop: 18 }}>
-          <div className="alert alert-error" style={{ marginBottom: 14 }}>
-            <strong>Authentication is not enforced yet.</strong> The backend has no login
-            endpoint, so the password below is <em>not checked</em> and the server accepts any
-            claimed identity. Do not treat these screens as a security boundary.
-          </div>
-
-          <h3 style={{ marginBottom: 10 }}>Seeded accounts</h3>
-          <p className="hint" style={{ marginTop: 0, marginBottom: 12 }}>
-            Click one to fill the form. Any password works.
-          </p>
-
-          <div className="stack" style={{ gap: 8 }}>
-            {knownAccounts().map((account) => (
-              <button
-                key={account.id}
-                type="button"
-                className="account-row"
-                onClick={() => {
-                  setEmail(account.email)
-                  setPassword('demo')
-                  setError(null)
-                }}
-              >
-                <span className="grow">
-                  <strong>{account.name}</strong>
-                  <span className="hint" style={{ display: 'block', marginTop: 2 }}>
-                    {account.email}
-                  </span>
-                </span>
-                <Badge value={account.role} className="badge-kind" />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </main>
   )
 }

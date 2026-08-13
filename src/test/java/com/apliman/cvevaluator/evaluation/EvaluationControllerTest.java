@@ -3,6 +3,8 @@ package com.apliman.cvevaluator.evaluation;
 import com.apliman.cvevaluator.application.Application;
 import com.apliman.cvevaluator.application.ApplicationRepository;
 import com.apliman.cvevaluator.job.RequirementKind;
+import com.apliman.cvevaluator.security.TestTokens;
+import com.apliman.cvevaluator.security.WithSecurityRules;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,9 +30,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * The evaluation read endpoints as a client experiences them.
+ *
+ * <p>Every request here is the recruiter who owns the job — the lookup is
+ * scoped to them, so an unscoped stub would make every test 404. Who is allowed
+ * to be that caller at all is {@link EvaluationControllerAuthorizationTest}'s
+ * subject.
  */
 @WebMvcTest(EvaluationController.class)
+@WithSecurityRules
 class EvaluationControllerTest {
+
+    private static final long OWNER_ID = 7L;
 
     @Autowired
     private MockMvc mockMvc;
@@ -47,14 +57,16 @@ class EvaluationControllerTest {
     void applicationExists() {
         application = new Application(null, null, "cv.pdf", "application/pdf", 1L, "key.pdf");
         ReflectionTestUtils.setField(application, "id", 42L);
-        when(applications.findById(42L)).thenReturn(Optional.of(application));
+        when(applications.findByIdAndJob_CreatedByRecruiter_Id(42L, OWNER_ID))
+                .thenReturn(Optional.of(application));
     }
 
     @Test
     void latest_returnsTheVerdictSummaryAndEveryAssessment() throws Exception {
         when(evaluationService.findLatest(any())).thenReturn(Optional.of(evaluation()));
 
-        mockMvc.perform(get("/api/applications/42/evaluation"))
+        mockMvc.perform(get("/api/applications/42/evaluation")
+                        .with(TestTokens.recruiter(OWNER_ID)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.applicationId").value(42))
                 .andExpect(jsonPath("$.verdict").value("POSSIBLE_FIT"))
@@ -74,7 +86,8 @@ class EvaluationControllerTest {
     void latest_carriesTheReasoningAndQuoteOnEachAssessment() throws Exception {
         when(evaluationService.findLatest(any())).thenReturn(Optional.of(evaluation()));
 
-        mockMvc.perform(get("/api/applications/42/evaluation"))
+        mockMvc.perform(get("/api/applications/42/evaluation")
+                        .with(TestTokens.recruiter(OWNER_ID)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.assessments[0].requirementId").value("R1"))
                 .andExpect(jsonPath("$.assessments[0].reasoning").value("Nine years stated."))
@@ -87,7 +100,8 @@ class EvaluationControllerTest {
     void latest_returns404WhenTheApplicationHasNeverBeenEvaluated() throws Exception {
         when(evaluationService.findLatest(any())).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/applications/42/evaluation"))
+        mockMvc.perform(get("/api/applications/42/evaluation")
+                        .with(TestTokens.recruiter(OWNER_ID)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").value("Application 42 has not been evaluated yet."));
@@ -95,9 +109,11 @@ class EvaluationControllerTest {
 
     @Test
     void latest_returns404ForAnUnknownApplication() throws Exception {
-        when(applications.findById(999L)).thenReturn(Optional.empty());
+        when(applications.findByIdAndJob_CreatedByRecruiter_Id(999L, OWNER_ID))
+                .thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/applications/999/evaluation"))
+        mockMvc.perform(get("/api/applications/999/evaluation")
+                        .with(TestTokens.recruiter(OWNER_ID)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Application 999 not found"));
     }
@@ -106,7 +122,8 @@ class EvaluationControllerTest {
     void history_returnsEveryRetainedEvaluation() throws Exception {
         when(evaluationService.findHistory(any())).thenReturn(List.of(evaluation(), evaluation()));
 
-        mockMvc.perform(get("/api/applications/42/evaluations"))
+        mockMvc.perform(get("/api/applications/42/evaluations")
+                        .with(TestTokens.recruiter(OWNER_ID)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2));
     }
@@ -116,7 +133,8 @@ class EvaluationControllerTest {
     void history_returnsAnEmptyArrayWhenThereAreNoEvaluations() throws Exception {
         when(evaluationService.findHistory(any())).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/applications/42/evaluations"))
+        mockMvc.perform(get("/api/applications/42/evaluations")
+                        .with(TestTokens.recruiter(OWNER_ID)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }
@@ -126,7 +144,8 @@ class EvaluationControllerTest {
     void assessment_returnsTheReasoningForOneRequirement() throws Exception {
         when(evaluationService.findLatest(any())).thenReturn(Optional.of(evaluation()));
 
-        mockMvc.perform(get("/api/applications/42/evaluation/requirements/R2"))
+        mockMvc.perform(get("/api/applications/42/evaluation/requirements/R2")
+                        .with(TestTokens.recruiter(OWNER_ID)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.applicationId").value(42))
                 .andExpect(jsonPath("$.evaluatedAgainstRequirementsVersion").value(3))
@@ -143,7 +162,8 @@ class EvaluationControllerTest {
     void assessment_returns404ForARequirementTheEvaluationDoesNotCover() throws Exception {
         when(evaluationService.findLatest(any())).thenReturn(Optional.of(evaluation()));
 
-        mockMvc.perform(get("/api/applications/42/evaluation/requirements/R9"))
+        mockMvc.perform(get("/api/applications/42/evaluation/requirements/R9")
+                        .with(TestTokens.recruiter(OWNER_ID)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value(
                         "The latest evaluation of application 42 has no assessment for requirement 'R9'."));
@@ -158,13 +178,15 @@ class EvaluationControllerTest {
     void assessment_isCaseSensitiveOnTheRequirementId() throws Exception {
         when(evaluationService.findLatest(any())).thenReturn(Optional.of(evaluation()));
 
-        mockMvc.perform(get("/api/applications/42/evaluation/requirements/r2"))
+        mockMvc.perform(get("/api/applications/42/evaluation/requirements/r2")
+                        .with(TestTokens.recruiter(OWNER_ID)))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void delete_returns204AndAsksTheServiceToRemoveIt() throws Exception {
-        mockMvc.perform(delete("/api/applications/42/evaluations/7"))
+        mockMvc.perform(delete("/api/applications/42/evaluations/7")
+                        .with(TestTokens.recruiter(OWNER_ID)))
                 .andExpect(status().isNoContent());
 
         verify(evaluationService).delete(application, 7L);
@@ -175,7 +197,8 @@ class EvaluationControllerTest {
         doThrow(new EvaluationNotFoundException("Application 42 has no evaluation 7."))
                 .when(evaluationService).delete(any(), eq(7L));
 
-        mockMvc.perform(delete("/api/applications/42/evaluations/7"))
+        mockMvc.perform(delete("/api/applications/42/evaluations/7")
+                        .with(TestTokens.recruiter(OWNER_ID)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").value("Application 42 has no evaluation 7."));
@@ -183,9 +206,11 @@ class EvaluationControllerTest {
 
     @Test
     void delete_returns404ForAnUnknownApplicationWithoutTouchingTheService() throws Exception {
-        when(applications.findById(999L)).thenReturn(Optional.empty());
+        when(applications.findByIdAndJob_CreatedByRecruiter_Id(999L, OWNER_ID))
+                .thenReturn(Optional.empty());
 
-        mockMvc.perform(delete("/api/applications/999/evaluations/7"))
+        mockMvc.perform(delete("/api/applications/999/evaluations/7")
+                        .with(TestTokens.recruiter(OWNER_ID)))
                 .andExpect(status().isNotFound());
 
         verify(evaluationService, never()).delete(any(), any());

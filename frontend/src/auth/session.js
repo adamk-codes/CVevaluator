@@ -2,39 +2,26 @@
  * THE AUTH SEAM. Everything in the frontend that depends on how the backend
  * does authentication lives in this file and nowhere else.
  *
- * <h2>Read this before changing anything auth-related</h2>
+ * <h2>How it works</h2>
  *
- * The backend has no authentication yet — no login endpoint, no register
- * endpoint, no token, no `/me`. `HeaderCurrentUserProvider` reads an
- * `X-User-Id` header and trusts it. That is a deliberate scope decision on the
- * backend side, and it is being replaced in a separate piece of work.
+ * The backend issues a self-signed HS256 JWT from
+ * {@code POST /api/auth/login} and {@code POST /api/auth/register}, and every
+ * other endpoint is behind the filter chain. The token goes back on each
+ * request as {@code Authorization: Bearer <token>}.
  *
- * Rather than wait for it, every screen, route, guard and hook in this app is
- * written against the {@link loadSession}/{@link login}/{@link authHeaders}
- * contract below, which is designed to be the same before and after real auth
- * exists. When the backend lands, the changes are confined to the four
- * functions marked SWAP in this file. Nothing outside `src/auth/` should ever
- * read a token, build an auth header, or know what a session is made of — if
- * something needs the current user it calls `useAuth()`.
+ * <p>Nothing outside `src/auth/` reads a token or builds a header — anything
+ * needing the current user calls `useAuth()`. That indirection is why swapping
+ * the stubbed header identity for real tokens changed this file and no screen.
  *
- * <h2>What is provisional, precisely</h2>
+ * <h2>The token is never decoded here</h2>
  *
- * <ul>
- *   <li><strong>Passwords are not checked.</strong> There is nothing to check
- *       them against. {@link login} resolves an email to one of the seeded
- *       users and ignores the password entirely.
- *   <li><strong>Identity is self-asserted.</strong> The session is held in
- *       localStorage and the only thing sent to the server is the user id, so
- *       a user can trivially become another user. This is not a frontend
- *       weakness to be fixed in the frontend — the server currently accepts
- *       whatever `X-User-Id` it is given, so no amount of client code makes it
- *       a boundary.
- *   <li><strong>Registration cannot work at all.</strong> There is no endpoint
- *       that creates a user, so {@link register} refuses rather than pretending.
- * </ul>
- *
- * Because of the second point the app shows a standing banner saying auth is
- * not enforced. Do not remove it before the backend does enforce it.
+ * A JWT's payload is base64, not encrypted, so the name and role could be read
+ * out of it client-side without a request. This deliberately does not: the
+ * value sits in localStorage where the page's own code can rewrite it, so
+ * trusting its claims would mean trusting the client's own storage. The name
+ * and role come from the server — with the token on login, and from
+ * {@link restore} on reload. The signature is what makes the server's copy
+ * authoritative, and only the server checks it.
  */
 
 const STORAGE_KEY = 'cvevaluator.session'
@@ -43,27 +30,14 @@ export const RECRUITER = 'RECRUITER'
 export const CANDIDATE = 'CANDIDATE'
 
 /**
- * SWAP — delete this entirely once a login endpoint exists.
- *
- * Stands in for the user lookup the server will do. These are the rows in
- * `users`; the ids are what `X-User-Id` has to carry for the existing
- * controllers to attribute a job or a submission correctly, which is why they
- * are real ids and not invented ones.
+ * Authentication is now enforced by the backend, so the "not enforced" banner
+ * is gone. Kept as a named constant rather than deleted outright because the
+ * header and the sign-in screen both read it, and one flag is easier to reason
+ * about than two removed conditionals.
  */
-const SEEDED_USERS = [
-  { id: 1, name: 'Adam', email: 'adam.kh@gmail.com', role: RECRUITER },
-  { id: 15, name: 'Recruiter', email: 'recruiter@apliman.com', role: RECRUITER },
-  { id: 6, name: 'Test Candidate', email: 'candidate@example.com', role: CANDIDATE },
-]
+export const AUTH_IS_ENFORCED = true
 
-/** Offered on the sign-in screen so nobody has to guess a seeded address. */
-export const knownAccounts = () => SEEDED_USERS
-
-/**
- * Raised for any auth failure. Carries a message safe to show the user.
- * Kept distinct from ApiError so a failed sign-in is never confused with a
- * failed data fetch.
- */
+/** Raised for any auth failure. Message is safe to show the user. */
 export class AuthError extends Error {
   constructor(message) {
     super(message)
@@ -72,94 +46,138 @@ export class AuthError extends Error {
 }
 
 /**
- * True while identity is self-asserted rather than proven.
- *
- * Drives the "not enforced" banner. SWAP this to `false` in the same change
- * that makes {@link login} call a real endpoint — it is a single constant so
- * the banner cannot be left behind by accident, or removed too early.
- */
-export const AUTH_IS_ENFORCED = false
-
-/**
  * The stored session, or null.
  *
- * <p>Shape: `{ user: { id, name, email, role }, token }`. `token` is null
- * today. It is in the shape now so that adding one later is not a change to
- * the shape every consumer reads.
+ * <p>Shape: `{ user: { id, name, email, role }, token, expiresAt }`.
+ *
+ * <p>An expired token is treated as no session at all. Without this the app
+ * would render a signed-in shell and then take a 401 on the first fetch — the
+ * user sees their own name above an error. The backend sends `expiresAt`
+ * precisely so the client can get ahead of that.
  */
 export function loadSession() {
   const raw = localStorage.getItem(STORAGE_KEY)
   if (!raw) return null
+
   try {
     const session = JSON.parse(raw)
-    // A stored session from an older build, or hand-edited rubbish, must not
-    // put the app in a half-signed-in state that no screen handles.
-    return session?.user?.id && session?.user?.role ? session : null
+    if (!session?.token || !session?.user?.id || !session?.user?.role) return null
+
+    if (session.expiresAt && new Date(session.expiresAt) <= new Date()) {
+      localStorage.removeItem(STORAGE_KEY)
+      return null
+    }
+    return session
   } catch {
+    // Hand-edited or written by an older build. Half a session is worse than
+    // none - no screen handles a signed-in user with no token.
     return null
   }
 }
 
-function persist(session) {
+function persist(body) {
+  // Built field by field rather than storing the response whole, so a field the
+  // backend adds later does not silently become part of what this app persists.
+  const session = {
+    user: body.user,
+    token: body.token,
+    expiresAt: body.expiresAt,
+  }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
   return session
 }
 
 /**
- * SWAP — becomes `POST /api/auth/login`.
+ * Posts credentials without going through `client.js`.
  *
- * The replacement should keep this signature and keep returning the same
- * session shape; then no caller changes. Roughly:
- *
- *   const body = await request('/api/auth/login', {method:'POST', body:{email,password}})
- *   return persist({ user: body.user, token: body.token })
- *
- * @throws AuthError when the email is not recognised
+ * <p>These two endpoints are the only ones reachable with no token, and
+ * `client.js` exists to attach one. Routing them through it would mean it
+ * imports this file and this file imports it back — a cycle, to share four
+ * lines of fetch.
  */
-export async function login(email, password) {
-  const match = SEEDED_USERS.find(
-    (u) => u.email.toLowerCase() === String(email).trim().toLowerCase(),
-  )
-  if (!match) {
-    throw new AuthError(
-      'No account with that email. Authentication is not wired up yet, so only the seeded accounts below can sign in.',
-    )
+async function postCredentials(path, body, fallbackMessage) {
+  let response
+  try {
+    response = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch {
+    // fetch rejects only on a transport failure, which here means the API is
+    // not running - a different problem from bad credentials and worth saying so.
+    throw new AuthError('Could not reach the server. Is the backend running?')
   }
-  // The password is deliberately unused. Saying so out loud here because a
-  // silent unused parameter is how this gets mistaken for a real check.
-  void password
-  return persist({ user: match, token: null })
+
+  const text = await response.text()
+  const parsed = text ? JSON.parse(text) : null
+
+  if (!response.ok) {
+    // GlobalExceptionHandler authors every message and never leaks internals,
+    // so it is safe to show as-is. The 401 on login is deliberately the same
+    // sentence for a bad password and an unknown email.
+    throw new AuthError(parsed?.message ?? fallbackMessage)
+  }
+  return parsed
+}
+
+export async function login(email, password) {
+  return persist(
+    await postCredentials('/api/auth/login', { email, password }, 'Could not sign in.'),
+  )
 }
 
 /**
- * SWAP — becomes `POST /api/auth/register`.
- *
- * Refuses rather than faking it. Creating a local-only account would let
- * someone sign up, submit a CV, and have every request attributed to a user id
- * the server has never heard of — which fails deep in the controller with
- * "Current user not found" rather than here with a sentence.
+ * @param details `{ name, email, password, role }` — role is chosen by the
+ *        registrant, which the backend allows because neither role outranks the
+ *        other. Password must be 8-72 characters; the ceiling is BCrypt's.
  */
-export async function register() {
-  throw new AuthError(
-    'Registration needs a backend endpoint that does not exist yet. Sign in with one of the seeded accounts for now.',
+export async function register({ name, email, password, role }) {
+  return persist(
+    await postCredentials(
+      '/api/auth/register',
+      { name, email, password, role },
+      'Could not create the account.',
+    ),
   )
+}
+
+/**
+ * Re-reads the current user from the token on a cold page load.
+ *
+ * <p>Needed because the stored `user` is a copy written at sign-in: a role
+ * changed server-side, or an account deleted, would otherwise keep rendering
+ * from a snapshot until the token expired. `GET /api/auth/me` is one request
+ * and its answer is authoritative.
+ *
+ * <p>A rejection here means the token is no longer good, so the session is
+ * dropped rather than kept — that is the whole point of asking.
+ */
+export async function restore() {
+  const session = loadSession()
+  if (!session) return null
+
+  try {
+    const response = await fetch('/api/auth/me', { headers: authHeaders() })
+    if (!response.ok) {
+      logout()
+      return null
+    }
+    return persist({ ...session, user: await response.json() })
+  } catch {
+    // Transport failure, not a rejected token. The session is kept: signing
+    // someone out because the API was briefly unreachable loses their place for
+    // a reason that has nothing to do with them.
+    return session
+  }
 }
 
 export function logout() {
   localStorage.removeItem(STORAGE_KEY)
 }
 
-/**
- * SWAP — the headers every API request carries.
- *
- * Today: the stub header `HeaderCurrentUserProvider` reads. Later: almost
- * certainly `Authorization: Bearer <token>`, at which point this becomes
- *
- *   return session?.token ? { Authorization: `Bearer ${session.token}` } : {}
- *
- * `client.js` is the only consumer and it does not care which.
- */
+/** The header every authenticated request carries. */
 export function authHeaders() {
   const session = loadSession()
-  return session ? { 'X-User-Id': String(session.user.id) } : {}
+  return session ? { Authorization: `Bearer ${session.token}` } : {}
 }

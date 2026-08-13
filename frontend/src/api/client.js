@@ -1,4 +1,4 @@
-import { authHeaders, loadSession } from '../auth/session'
+import { authHeaders, loadSession, logout } from '../auth/session'
 
 /**
  * The one place that talks to the backend.
@@ -28,6 +28,22 @@ export class ApiError extends Error {
  * rather than the actual outcome.
  */
 async function handle(response) {
+  // A token that expired or was revoked mid-session. Every subsequent request
+  // would 401 too, so the session is dropped here rather than letting each
+  // screen render its own "Authentication required" against a header still
+  // showing the user's name.
+  //
+  // A full location change rather than a router navigation: this module is not
+  // inside React and has no router to call, and starting from a clean load is
+  // the right outcome anyway - it clears every cache holding data fetched under
+  // the dead token. Guarded so a 401 from the sign-in screen itself, which is
+  // just wrong credentials, does not reload the page out from under the form.
+  if (response.status === 401 && !window.location.pathname.startsWith('/login')) {
+    logout()
+    window.location.assign('/login')
+    throw new ApiError(401, 'Your session has expired. Please sign in again.')
+  }
+
   if (response.status === 204) return null
 
   const text = await response.text()

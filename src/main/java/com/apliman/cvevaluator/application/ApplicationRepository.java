@@ -46,24 +46,58 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
     List<ApplicationStatusResponse> findSummariesByJobId(@Param("jobId") Long jobId);
 
     /**
-     * One CV's status, by its own id and the job it must belong to.
+     * One CV's status, visible to the candidate who submitted it and to the
+     * recruiter who posted the job — and to nobody else.
      *
-     * <p>Scoped by {@code jobId} for the same reason
-     * {@code EvaluationService.delete} checks ownership: without it, a guessed
-     * application id under any job path would return another candidate's
-     * submission. Here the wrong pairing is simply absent, which the controller
-     * turns into a 404.
+     * <p>This is the one endpoint both roles reach, so authorization is
+     * expressed as ownership rather than as a role, and the {@code or} is that
+     * rule written once. Doing it in the query rather than in the handler is
+     * not a style preference: {@code a.candidate} and
+     * {@code a.job.createdByRecruiter} are both LAZY, so a handler that loaded
+     * the row and then compared ids would throw
+     * {@code LazyInitializationException} on the detached instance — the same
+     * trap {@link #findByIdAndJob_CreatedByRecruiter_Id} exists to avoid.
+     *
+     * <p>{@code jobId} stays in the predicate even though {@code applicationId}
+     * is unique. The path asserts the application belongs to that job, and a
+     * path asserting something false should not resolve.
+     *
+     * <p>Empty covers "no such application", "wrong job" and "not yours"
+     * alike, and the controller turns all three into the same 404. A 403 on the
+     * last case would confirm the row exists, which is exactly what an id-space
+     * walk is looking for.
      */
     @Query("""
             select new com.apliman.cvevaluator.application.dto.ApplicationStatusResponse(
                 a.id, a.job.id, a.originalFilename, a.status, a.failureReason,
                 a.sizeBytes, a.textLength, a.extractionMethod, a.submittedAt)
             from Application a
-            where a.id = :applicationId and a.job.id = :jobId
+            where a.id = :applicationId
+              and a.job.id = :jobId
+              and (a.candidate.id = :userId or a.job.createdByRecruiter.id = :userId)
             """)
-    Optional<ApplicationStatusResponse> findSummaryByIdAndJobId(
+    Optional<ApplicationStatusResponse> findSummaryVisibleTo(
             @Param("applicationId") Long applicationId,
-            @Param("jobId") Long jobId);
+            @Param("jobId") Long jobId,
+            @Param("userId") Long userId);
+
+    /**
+     * This application, but only if this recruiter posted the job it was
+     * submitted against.
+     *
+     * <p>Two hops — {@code application → job → createdByRecruiter} — and both
+     * are LAZY, which is exactly why this is a query and not a check written
+     * out in the controller. Reading {@code application.getJob()
+     * .getCreatedByRecruiter().getId()} on the detached instance that
+     * {@code findById} hands back throws {@code LazyInitializationException};
+     * the derived query resolves the whole path in one join instead.
+     *
+     * <p>Empty covers both "no such application" and "not yours", deliberately.
+     * The evaluation endpoints turn it into the same 404 either way, so a
+     * recruiter cannot walk the id space discovering which applications exist
+     * on other people's postings.
+     */
+    Optional<Application> findByIdAndJob_CreatedByRecruiter_Id(Long id, Long recruiterId);
 
     /**
      * How many CVs are attached to a job. Derived query, so it is one

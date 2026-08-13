@@ -2,6 +2,7 @@ package com.apliman.cvevaluator.application;
 
 import com.apliman.cvevaluator.application.dto.ApplicationResponse;
 import com.apliman.cvevaluator.application.dto.ApplicationStatusResponse;
+import com.apliman.cvevaluator.auth.InvalidCredentialsException;
 import com.apliman.cvevaluator.job.JobNotFoundException;
 import com.apliman.cvevaluator.job.JobRepository;
 import com.apliman.cvevaluator.security.CurrentUserProvider;
@@ -83,13 +84,20 @@ public class ApplicationController {
         //    not exist would leave a file on disk with no row referencing it.
         // 2. Then the file write, outside any transaction.
         // 3. Then the insert, which is the only transactional step.
+        // From the token, never from a request parameter. Before authentication
+        // this came from a header the client set, which meant anyone could
+        // submit a CV as anyone. It is now the verified token subject, and the
+        // CANDIDATE role gate in SecurityConfig is what stops a recruiter
+        // submitting against their own posting.
         Long candidateId = currentUserProvider.currentUserId();
 
         if (!jobRepository.existsById(jobId)) {
             throw new JobNotFoundException(jobId);
         }
+        // A live token for a deleted account. 401, not 500 - the caller can act
+        // on "log in again" and cannot act on "something went wrong".
         if (!userRepository.existsById(candidateId)) {
-            throw new IllegalStateException("Current user not found");
+            throw new InvalidCredentialsException();
         }
 
         // Disk first, database second. Reversing this trades a harmless orphan
@@ -150,9 +158,16 @@ public class ApplicationController {
      */
     @GetMapping
     public List<ApplicationStatusResponse> list(@PathVariable Long jobId) {
-        if (!jobRepository.existsById(jobId)) {
-            throw new JobNotFoundException(jobId);
-        }
+        // Scoped to the caller's own postings, not merely to an existing job.
+        // The role gate in SecurityConfig establishes that this is a recruiter;
+        // it says nothing about whether it is *their* posting, and without this
+        // any recruiter could read the applicant list of every job on the
+        // platform. 404 rather than 403 for the same reason as
+        // JobRepository.findByIdAndCreatedByRecruiter_Id - a 403 confirms the
+        // job exists and belongs to someone else.
+        jobRepository.findByIdAndCreatedByRecruiter_Id(jobId, currentUserProvider.currentUserId())
+                .orElseThrow(() -> new JobNotFoundException(jobId));
+
         return applicationRepository.findSummariesByJobId(jobId);
     }
 
@@ -174,16 +189,21 @@ public class ApplicationController {
      * <p>404 when the application exists but belongs to a different job, not
      * just when the id is unknown. The path asserts a relationship and a path
      * that asserts something false is not found.
+     *
+     * <p>Reachable by both roles, which is why the authorization is ownership
+     * rather than a role gate: the candidate who submitted it, or the recruiter
+     * who posted the job, and nobody else. That is enforced in the query — see
+     * {@link ApplicationRepository#findSummaryVisibleTo}. A candidate polling a
+     * stranger's application id gets the same 404 as one polling an id that was
+     * never issued.
      */
     @GetMapping("/{applicationId}")
     public ApplicationStatusResponse status(
             @PathVariable Long jobId,
             @PathVariable Long applicationId
     ) {
-        if (!jobRepository.existsById(jobId)) {
-            throw new JobNotFoundException(jobId);
-        }
-        return applicationRepository.findSummaryByIdAndJobId(applicationId, jobId)
+        return applicationRepository
+                .findSummaryVisibleTo(applicationId, jobId, currentUserProvider.currentUserId())
                 .orElseThrow(() -> new ApplicationNotFoundException(applicationId));
     }
 }

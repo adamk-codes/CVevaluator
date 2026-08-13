@@ -1,20 +1,18 @@
 import { useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { homeFor } from '../auth/routes'
 import { CANDIDATE, RECRUITER } from '../auth/session'
 
 /**
- * The registration form, in its final shape, against a backend that cannot yet
- * accept it.
+ * Registration.
  *
- * <p>Submitting reports the honest reason rather than creating a local-only
- * account. A fake account would let someone register, apply for a job, and have
- * every request attributed to a user id the server has never seen — surfacing
- * much later as "Current user not found" from deep inside a controller. Failing
- * here, with a sentence, is the better failure.
+ * <p>The backend returns a token alongside the new account, so a successful
+ * registration is also a sign-in and lands the user on their own dashboard
+ * rather than bouncing them to the login screen to retype what they just typed.
  */
 export default function RegisterPage() {
+  const navigate = useNavigate()
   const { isAuthenticated, role, signUp } = useAuth()
 
   const [form, setForm] = useState({
@@ -35,7 +33,8 @@ export default function RegisterPage() {
     setBusy(true)
     setError(null)
     try {
-      await signUp(form)
+      const created = await signUp(form)
+      navigate(homeFor(created?.user?.role), { replace: true })
     } catch (e) {
       setError(e.message)
     } finally {
@@ -75,8 +74,14 @@ export default function RegisterPage() {
               value={form.password}
               onChange={(e) => set({ password: e.target.value })}
               autoComplete="new-password"
+              minLength={8}
+              maxLength={72}
               required
             />
+            {/* Both bounds mirror RegisterRequest. The ceiling is BCrypt's: it
+                hashes the first 72 bytes and ignores the rest, so the backend
+                rejects rather than silently truncating. */}
+            <p className="hint">8-72 characters.</p>
           </div>
 
           <div className="field">

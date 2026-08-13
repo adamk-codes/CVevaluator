@@ -1,6 +1,8 @@
 package com.apliman.cvevaluator.common;
 
 import com.apliman.cvevaluator.application.ApplicationNotFoundException;
+import com.apliman.cvevaluator.auth.EmailAlreadyRegisteredException;
+import com.apliman.cvevaluator.auth.InvalidCredentialsException;
 import com.apliman.cvevaluator.evaluation.EvaluationNotFoundException;
 import com.apliman.cvevaluator.job.InvalidJobRequirementsException;
 import com.apliman.cvevaluator.job.JobNotFoundException;
@@ -11,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -72,12 +75,64 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(400, message));
     }
 
-    // for the HeaderCurrentUserProvider missing id in header or using a wrong type of id
-    @ExceptionHandler({ IllegalStateException.class, IllegalArgumentException.class })
-    public ResponseEntity<ErrorResponse> handleBadRequest(RuntimeException ex) {
+    /**
+     * A login that did not match, or a token belonging to a deleted user.
+     *
+     * <p>The message is the exception's, and safely so: {@code
+     * InvalidCredentialsException} hardcodes one string for every failure mode
+     * precisely so that it can be returned without leaking which half was wrong.
+     */
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCredentials(InvalidCredentialsException ex) {
         return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse(400, ex.getMessage()));
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse(401, ex.getMessage()));
+    }
+
+    @ExceptionHandler(EmailAlreadyRegisteredException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateEmail(EmailAlreadyRegisteredException ex) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(409, ex.getMessage()));
+    }
+
+    /**
+     * A role check that failed inside a handler rather than in the filter chain.
+     *
+     * <p>Most 403s never reach here — {@code SecurityConfig}'s
+     * {@code accessDeniedHandler} answers them at the filter layer, because that
+     * is where the URL rules are enforced and advice cannot see it. This catches
+     * the rest and keeps the body identical either way, so a client cannot tell
+     * from the response which layer refused it.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse(403, "Your role does not permit this operation."));
+    }
+
+    /**
+     * The blanket 400 of last resort.
+     *
+     * <p>This used to be justified by {@code HeaderCurrentUserProvider}, whose
+     * malformed-header failures were genuinely the client's fault. That class is
+     * gone, and with it the reason to trust these messages: an
+     * {@code IllegalStateException} now means an internal invariant broke — a
+     * token with no role claim, a user id that is not a number, a lookup that
+     * should not have failed. None of that is the caller's doing and none of the
+     * messages were written for a client to read.
+     *
+     * <p>So: 500, a fixed message, and the real cause to the log. Leaving it as
+     * a 400 that echoes {@code ex.getMessage()} would tell a client "Token
+     * carries an unknown role: X" and call it a bad request.
+     */
+    @ExceptionHandler({ IllegalStateException.class, IllegalArgumentException.class })
+    public ResponseEntity<ErrorResponse> handleUnexpectedState(RuntimeException ex) {
+        log.error("Unhandled illegal state or argument", ex);
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ErrorResponse(500, "Something went wrong"));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

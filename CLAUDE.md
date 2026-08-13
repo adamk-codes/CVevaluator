@@ -37,10 +37,17 @@ apply here. Check against this list before writing anything.
   The package moved — it is no longer under
   `org.springframework.boot.test.mock.mockito`.
 - **Jackson 3**, not Jackson 2. Package roots changed.
-- **Spring Security:** `requestMatchers`, lambda DSL only. Never
+- **Spring Security 7:** `requestMatchers`, lambda DSL only. Never
   `antMatchers`, never `.and()` chaining, never
-  `WebSecurityConfigurerAdapter`. *(Security is out of scope anyway
-  — see Decisions.)*
+  `WebSecurityConfigurerAdapter`.
+- **`@MockBean` is gone here too** — security slices use
+  `@MockitoBean`. And **`@WebMvcTest` does not pick up
+  `SecurityConfig`**: the slice auto-configures Boot's *default*
+  chain instead, so a test without `@WithSecurityRules` asserts
+  against rules the application does not have, and passes.
+- **Boot 4 security artifact ids are the modular ones:**
+  `spring-boot-starter-security-oauth2-resource-server`, not the
+  Boot 3 `spring-boot-starter-oauth2-resource-server`.
 - **Spring AI:** `initialize-schema=true` is opt-in for
   `PgVectorStore`. Nothing works until it is set.
 - **pgvector:** use **HNSW**, never IVFFlat. IVFFlat caps at 2000
@@ -71,11 +78,28 @@ anyway.
 
 - **`ddl-auto: update`. No Flyway.** Schema is still moving daily and
   hand-written migrations are not worth the time at this scale.
-- **Auth is stubbed by design.** `CurrentUserProvider` is an
-  interface; `HeaderCurrentUserProvider` reads the `X-User-Id`
-  header. **Do not add Spring Security. Do not add JWT.** The seam
-  exists so a `JwtCurrentUserProvider` is a one-bean swap later.
-  This is a scope decision, not an oversight.
+- **Auth is real, and it is JWT over Spring Security.** This reverses
+  the earlier "auth is stubbed, do not add Spring Security" decision —
+  the seam did its job: `HeaderCurrentUserProvider` was deleted and
+  `JwtCurrentUserProvider` took its place, and no caller changed.
+  - **HS256, symmetric, self-issued.** This application is both
+    issuer and verifier, so there is no keypair to manage and no
+    authorization server. `spring-boot-starter-security-oauth2-resource-server`
+    is on the classpath for `NimbusJwtEncoder`/`Decoder` and the
+    bearer-token filter only — nothing here talks OAuth2 to anyone.
+  - **Stateless. No refresh token, no revocation list.** A token is
+    good until it expires; logout is a client-side discard. Accepted
+    cost, not an oversight.
+  - **The whole policy is URL rules in `SecurityConfig`**, readable
+    top to bottom. Ownership rules, which need the row, are scoped
+    repository queries instead — `findByIdAndCreatedByRecruiter_Id`,
+    `findByIdAndJob_CreatedByRecruiter_Id`.
+  - **Wrong role is 403; foreign-owned resource is 404.** The 404 is
+    deliberate: a 403 would confirm the row exists and let a
+    recruiter enumerate other people's applications by id.
+  - **Candidates never see evaluations at all** — not the verdict,
+    not the scores, not the reasoning. `/api/applications/**` is
+    RECRUITER-only. Product decision.
 - **Vectors live in `PgVectorStore`, never as a column on an
   `@Entity`.** Hibernate has no native mapping for `VECTOR(n)`.
   `CvChunk` stores a `vectorDocId` reference only.
@@ -117,8 +141,13 @@ Already built and working — **do not rewrite these unless asked**:
 - Request/response DTOs as records.
 - `ErrorResponse` + `GlobalExceptionHandler` (`@RestControllerAdvice`).
 - Bean Validation wired end to end.
-- `CurrentUserProvider` + `HeaderCurrentUserProvider` in
-  `com.apliman.cvevaluator.security`.
+- `com.apliman.cvevaluator.security`: `SecurityConfig` (the entire
+  authn/authz policy), `AuthProperties`, `AccessTokenIssuer`,
+  `JwtClaims`, `ErrorResponseWriter`, and `CurrentUserProvider` +
+  `JwtCurrentUserProvider`.
+- `com.apliman.cvevaluator.auth`: `AuthController`
+  (`POST /api/auth/register`, `POST /api/auth/login`,
+  `GET /api/auth/me`), `AuthService`, and record DTOs.
 - A `@DataJpaTest` over the application query that clears the
   persistence context before fetching, to make the N+1 visible.
 
@@ -153,4 +182,13 @@ In progress: file upload and storage, then text extraction.
 - Precedent corpus is synthetic, generated from fixture CVs.
 - Rubric is English-only.
 - Scores are not calibrated against human reviewers.
-- No authentication (see Decisions).
+- **No rate limiting and no account lockout.** Login is unthrottled;
+  a password can be guessed as fast as BCrypt allows. Out of scope.
+- **No refresh tokens and no logout endpoint.** A stolen token is
+  valid until it expires.
+- **The JWT signing secret has a committed development default.**
+  It warns loudly at startup when in use. Set `CVEVAL_JWT_SECRET`
+  for anything reachable by anyone else.
+- **Registration discloses which emails have accounts** (409 on a
+  duplicate). Login does not — same 401 either way, and the password
+  comparison runs even for unknown addresses so the timing matches.
