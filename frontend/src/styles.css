@@ -1,0 +1,465 @@
+/*
+ * Hand-written CSS, no framework.
+ *
+ * Tailwind or a component library would each be a dependency decision, and the
+ * project rule is to ask before adding one. This is a four-screen internal tool
+ * where the styling is mostly cards, a table and status badges - the amount of
+ * CSS a framework would save is smaller than the amount of config it adds.
+ */
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --border: #e2e5ea;
+  --text: #1a1d23;
+  --text-muted: #6b7280;
+  --accent: #2f5fd8;
+  --accent-soft: #eef3ff;
+
+  --met: #15803d;
+  --met-bg: #ecfdf3;
+  --partial: #b45309;
+  --partial-bg: #fffaeb;
+  --not-met: #b42318;
+  --not-met-bg: #fef3f2;
+  --unclear: #5b6472;
+  --unclear-bg: #f2f4f7;
+
+  --radius: 10px;
+  --shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 4%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1, h2, h3 {
+  margin: 0;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.15rem; }
+h3 { font-size: 1rem; }
+
+a { color: var(--accent); }
+
+code, .mono {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.85em;
+}
+
+/* ------------------------------------------------------------- layout --- */
+
+.app-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+}
+
+.app-header-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 60px;
+}
+
+.brand {
+  font-weight: 650;
+  font-size: 1.05rem;
+  color: var(--text);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.brand span { color: var(--accent); }
+
+.header-spacer { flex: 1; }
+
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 28px 24px 80px;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.page-head-text { flex: 1; min-width: 0; }
+
+.subtitle {
+  color: var(--text-muted);
+  margin: 6px 0 0;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 14px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.back-link:hover { color: var(--accent); }
+
+.stack { display: grid; gap: 16px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* -------------------------------------------------------------- cards --- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px 20px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.card-head h2 { flex: 1; }
+
+.job-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 120ms, box-shadow 120ms;
+}
+
+.job-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgb(47 95 216 / 12%);
+}
+
+/* ------------------------------------------------------------ controls --- */
+
+button {
+  font: inherit;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) { border-color: #c9cfd8; }
+
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 550;
+}
+
+button.primary:hover:not(:disabled) { background: #274fb5; }
+
+button.danger-link {
+  border: none;
+  background: none;
+  color: var(--not-met);
+  padding: 2px 4px;
+  font-size: 0.85rem;
+}
+
+button.small { padding: 5px 10px; font-size: 0.88rem; }
+
+input, textarea, select {
+  font: inherit;
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid var(--accent-soft);
+  border-color: var(--accent);
+}
+
+textarea { resize: vertical; min-height: 76px; }
+
+label {
+  display: block;
+  font-weight: 550;
+  font-size: 0.88rem;
+  margin-bottom: 5px;
+}
+
+.field { margin-bottom: 15px; }
+
+.hint {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  margin-top: 5px;
+}
+
+/* ------------------------------------------------------------- badges --- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.badge-MET, .badge-STRONG_FIT, .badge-COMPLETED {
+  color: var(--met); background: var(--met-bg); border-color: #abefc6;
+}
+.badge-PARTIAL, .badge-POSSIBLE_FIT, .badge-PROCESSING {
+  color: var(--partial); background: var(--partial-bg); border-color: #fedf89;
+}
+.badge-NOT_MET, .badge-NOT_A_FIT, .badge-FAILED {
+  color: var(--not-met); background: var(--not-met-bg); border-color: #fecdca;
+}
+.badge-UNCLEAR, .badge-WEAK_FIT, .badge-PENDING {
+  color: var(--unclear); background: var(--unclear-bg); border-color: #d5d9e0;
+}
+
+.badge-kind {
+  color: var(--text-muted);
+  background: var(--unclear-bg);
+  border-color: var(--border);
+  font-weight: 550;
+}
+
+/* -------------------------------------------------------------- table --- */
+
+table { width: 100%; border-collapse: collapse; }
+
+th {
+  text-align: left;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 0 12px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+td { padding: 11px 12px; border-bottom: 1px solid var(--border); }
+
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: #fafbfc; }
+
+td .filename {
+  font-weight: 550;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+td .filename:hover { text-decoration: underline; }
+
+.numeric { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+/* --------------------------------------------------- evidence & quotes --- */
+
+.assessment {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 15px 17px;
+}
+
+.assessment-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.assessment-id {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+}
+
+.requirement-text { font-weight: 550; margin: 0 0 9px; }
+
+.reasoning { margin: 0; color: #374151; }
+
+/*
+ * The quote block is the point of the whole product, so it is styled to look
+ * like a citation and not like body text. Every quote shown here has been
+ * verified by GroundingChecker to appear verbatim in the CV - that is the
+ * claim the UI is making by presenting it this way, and it is why the label
+ * says "verbatim from CV" rather than something softer.
+ */
+.evidence {
+  margin: 11px 0 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 6px 6px 0;
+}
+
+.evidence-label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.evidence blockquote {
+  margin: 0;
+  font-style: italic;
+  color: #1f2937;
+}
+
+.no-evidence {
+  margin: 11px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ------------------------------------------------------------- verdict --- */
+
+.verdict-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 19px 22px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.verdict-banner .verdict-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.verdict-value { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
+
+.verdict-STRONG_FIT { color: var(--met); }
+.verdict-POSSIBLE_FIT { color: var(--partial); }
+.verdict-WEAK_FIT { color: var(--unclear); }
+.verdict-NOT_A_FIT { color: var(--not-met); }
+
+.summary { margin: 0; color: #374151; }
+
+/* -------------------------------------------------------- score meters --- */
+
+.dimension { display: grid; gap: 7px; }
+
+.dimension-head { display: flex; align-items: baseline; gap: 9px; }
+
+.dimension-name { font-weight: 600; font-size: 0.9rem; flex: 1; }
+
+.dimension-score { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+.meter { display: flex; gap: 4px; }
+
+.meter-pip {
+  height: 6px;
+  flex: 1;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.meter-pip.filled { background: var(--accent); }
+
+/* --------------------------------------------------------- misc states --- */
+
+.empty {
+  text-align: center;
+  padding: 44px 20px;
+  color: var(--text-muted);
+}
+
+.empty h3 { margin-bottom: 6px; color: var(--text); }
+
+.alert {
+  padding: 11px 15px;
+  border-radius: 8px;
+  border: 1px solid;
+  font-size: 0.9rem;
+}
+
+.alert-error { color: var(--not-met); background: var(--not-met-bg); border-color: #fecdca; }
+.alert-info { color: var(--accent); background: var(--accent-soft); border-color: #c7d7fe; }
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.spinner-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+  flex: none;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 3s; }
+}
+
+.requirement-row {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.requirement-row:last-child { border-bottom: none; }
+
+.requirement-row .grow { flex: 1; min-width: 0; }
+
+.divider { height: 1px; background: var(--border); margin: 4px 0; }
