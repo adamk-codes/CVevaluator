@@ -76,7 +76,22 @@ function request(path, { method = 'GET', body, isMultipart = false } = {}) {
 
 /* ---------------------------------------------------------------- jobs --- */
 
+/**
+ * Every posting on the platform. The candidate's browse.
+ *
+ * <p>Not what a recruiter's dashboard should call — see {@link listMyJobs}.
+ */
 export const listJobs = () => request('/api/jobs')
+
+/**
+ * The signed-in recruiter's own postings.
+ *
+ * <p>The dashboard used {@link listJobs} and listed every posting on the
+ * platform, including other recruiters'. Opening one of those rendered its
+ * details and then failed on the applicant list, which is ownership-scoped —
+ * "Job not found" under a job plainly on the screen.
+ */
+export const listMyJobs = () => request('/api/me/jobs')
 
 export const getJob = (jobId) => request(`/api/jobs/${jobId}`)
 

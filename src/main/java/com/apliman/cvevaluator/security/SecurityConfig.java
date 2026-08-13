@@ -127,6 +127,14 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/me/applications")
                                 .hasRole("CANDIDATE")
 
+                        // A recruiter's own postings, which is what their
+                        // dashboard lists. GET /api/jobs stays the candidate's
+                        // browse and returns everything; these two answering
+                        // "which jobs" differently is deliberate, and it is the
+                        // dashboard that must ask this one.
+                        .requestMatchers(HttpMethod.GET, "/api/me/jobs")
+                                .hasRole("RECRUITER")
+
                         // One submission's status, and the only endpoint both roles
                         // reach: the candidate polls their own submission after
                         // uploading, the recruiter polls the same row on the list.

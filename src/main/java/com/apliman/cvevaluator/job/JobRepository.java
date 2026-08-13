@@ -2,6 +2,7 @@ package com.apliman.cvevaluator.job;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface JobRepository extends JpaRepository<Job,Long> {
@@ -29,4 +30,15 @@ public interface JobRepository extends JpaRepository<Job,Long> {
      * to guess whether {@code createdByRecruiterId} is a field on {@code Job}.
      */
     Optional<Job> findByIdAndCreatedByRecruiter_Id(Long id, Long recruiterId);
+
+    /**
+     * The postings one recruiter owns, newest first.
+     *
+     * <p>What a recruiter's dashboard lists. {@code findAll} was what it used
+     * before and it returned every posting on the platform — including ones
+     * this recruiter cannot open the applicants of, since that read is
+     * ownership-scoped. The two disagreeing is what produced a dashboard whose
+     * rows led to "Job not found".
+     */
+    List<Job> findByCreatedByRecruiter_IdOrderByCreatedAtDesc(Long recruiterId);
 }

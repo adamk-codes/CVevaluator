@@ -133,15 +133,6 @@ public class JobController {
     }
 
     private JobResponse toResponse(Job job) {
-        return new JobResponse(
-                job.getId(),
-                job.getTitle(),
-                job.getDescription(),
-                job.getSeniority(),
-                job.getRequirements(),
-                job.getRequirementsVersion(),
-                job.getCreatedAt(),
-                job.isActive()
-        );
+        return JobResponse.from(job);
     }
 }

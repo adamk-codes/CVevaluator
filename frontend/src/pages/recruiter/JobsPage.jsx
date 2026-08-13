@@ -1,15 +1,18 @@
 import { Link } from 'react-router-dom'
-import { useJobs } from '../../api/queries'
+import { useMyJobs } from '../../api/queries'
 import { Empty, ErrorAlert, Spinner, formatDate } from '../../components/ui'
 
 export default function JobsPage() {
-  const { data: jobs, isPending, error } = useJobs()
+  // The recruiter's own postings, not every posting on the platform. Applicant
+  // lists are ownership-scoped, so a dashboard listing other recruiters' jobs
+  // produced rows that opened onto "Job not found".
+  const { data: jobs, isPending, error } = useMyJobs()
 
   return (
     <main className="page">
       <div className="page-head">
         <div className="page-head-text">
-          <h1>Jobs</h1>
+          <h1>Your jobs</h1>
           <p className="subtitle">Post a role, then evaluate the CVs that come in against it.</p>
         </div>
         <Link to="/jobs/new">
@@ -21,8 +24,8 @@ export default function JobsPage() {
       {error && <ErrorAlert error={error} />}
 
       {jobs?.length === 0 && (
-        <Empty title="No jobs yet">
-          <p>Create a job and author its requirements to get started.</p>
+        <Empty title="You have not posted a job yet">
+          <p>Create one and author its requirements to get started.</p>
         </Empty>
       )}
 

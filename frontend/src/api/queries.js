@@ -10,6 +10,7 @@ export const keys = {
   job: (jobId) => ['jobs', jobId],
   applications: (jobId) => ['jobs', jobId, 'applications'],
   myApplications: ['me', 'applications'],
+  myJobs: ['me', 'jobs'],
   application: (jobId, applicationId) => ['jobs', jobId, 'applications', applicationId],
   evaluation: (applicationId) => ['applications', applicationId, 'evaluation'],
   evaluationHistory: (applicationId) => ['applications', applicationId, 'evaluations'],
@@ -22,8 +23,14 @@ export const isInFlight = (status) => IN_FLIGHT.includes(status)
 
 /* ---------------------------------------------------------------- jobs --- */
 
+/** Every posting. The candidate's browse — see {@link useMyJobs} for the recruiter. */
 export function useJobs() {
   return useQuery({ queryKey: keys.jobs, queryFn: api.listJobs })
+}
+
+/** The signed-in recruiter's own postings, which is what their dashboard lists. */
+export function useMyJobs() {
+  return useQuery({ queryKey: keys.myJobs, queryFn: api.listMyJobs })
 }
 
 export function useJob(jobId) {
@@ -38,7 +45,12 @@ export function useCreateJob() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: api.createJob,
-    onSuccess: () => client.invalidateQueries({ queryKey: keys.jobs }),
+    onSuccess: () => {
+      // Both lists: the new posting belongs in the recruiter's dashboard and in
+      // the candidates' browse, and they are separate cache entries.
+      client.invalidateQueries({ queryKey: keys.myJobs })
+      client.invalidateQueries({ queryKey: keys.jobs })
+    },
   })
 }
 
@@ -58,6 +70,7 @@ export function useReplaceRequirements(jobId) {
     mutationFn: (requirements) => api.replaceRequirements(jobId, requirements),
     onSuccess: () => {
       client.invalidateQueries({ queryKey: keys.job(jobId) })
+      client.invalidateQueries({ queryKey: keys.myJobs })
       client.invalidateQueries({ queryKey: keys.jobs })
       client.invalidateQueries({ queryKey: ['applications'] })
     },
