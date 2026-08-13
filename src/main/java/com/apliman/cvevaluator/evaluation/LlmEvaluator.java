@@ -172,6 +172,15 @@ public class LlmEvaluator {
             // than propagated so callers have one exception type to catch, and
             // so the provider's message - which can echo prompt content, and
             // therefore CV content - never becomes the reason on a row.
+            //
+            // The cause goes to the log for the same reason the ungrounded
+            // quote does in requireGrounded: it is the only place it can safely
+            // go. Without this line the wrapped exception is discarded by every
+            // caller - both AsyncApplicationReevaluationTrigger and
+            // SubmittedCvEvaluationListener log e.getMessage() only - so a
+            // provider 400, a quota rejection and a malformed body all read as
+            // the same sentence and none of them can be told apart.
+            log.warn("Model call or structured-output conversion failed", e);
             throw new EvaluationParseException(
                     "The model's response could not be read as an evaluation.", e);
         }

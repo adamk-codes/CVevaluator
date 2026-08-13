@@ -55,6 +55,9 @@ class LlmEvaluatorIntegrationTest {
 
     private static final Path FIXTURES = Path.of("fixtures");
 
+    /** Keep in step with {@code spring.ai.google.genai.chat.options.model}. */
+    private static final String MODEL = "gemini-3.6-flash";
+
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(
                     SpringAiRetryAutoConfiguration.class,
@@ -65,9 +68,17 @@ class LlmEvaluatorIntegrationTest {
             .withUserConfiguration(EvaluationBeans.class)
             // Only the api-key. No project-id, no location - either one flips
             // the client into Vertex AI mode and rejects a Developer key.
+            //
+            // The model is named here and again in application.properties, and
+            // the two must be changed together. ApplicationContextRunner does
+            // not read application.properties - that is the point of it, and
+            // the cost is this duplicated literal. When gemini-2.5-flash was
+            // retired, production failed and this test kept calling the dead
+            // model until it was updated by hand; if that happens again, look
+            // for the model id in both places.
             .withPropertyValues(
                     "spring.ai.google.genai.api-key=" + System.getenv("GEMINI_API_KEY"),
-                    "spring.ai.google.genai.chat.options.model=gemini-2.5-flash");
+                    "spring.ai.google.genai.chat.options.model=" + MODEL);
 
     @Configuration(proxyBeanMethods = false)
     @Import({AssessmentRubric.class, VerdictCalculator.class, GroundingChecker.class, LlmEvaluator.class})

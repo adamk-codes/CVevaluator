@@ -5,6 +5,7 @@ import com.apliman.cvevaluator.application.ApplicationRepository;
 import com.apliman.cvevaluator.application.ApplicationStatus;
 import com.apliman.cvevaluator.application.CvExtractedEvent;
 import com.apliman.cvevaluator.job.Job;
+import com.apliman.cvevaluator.job.JobRepository;
 import com.apliman.cvevaluator.job.JobRequirement;
 import com.apliman.cvevaluator.job.RequirementKind;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -32,16 +34,30 @@ import static org.mockito.Mockito.when;
 class SubmittedCvEvaluationListenerTest {
 
     private ApplicationRepository applications;
+    private JobRepository jobs;
     private LlmEvaluator evaluator;
     private EvaluationService evaluationService;
     private SubmittedCvEvaluationListener listener;
 
+    /**
+     * The job as the repository returns it: fully loaded, requirements
+     * populated. This is the only instance the evaluator may legitimately be
+     * given — see {@link #theJobIsLoadedFreshRatherThanReadOffTheDetachedApplication}.
+     */
+    private Job loadedJob;
+
     @BeforeEach
     void setUp() {
         applications = mock(ApplicationRepository.class);
+        jobs = mock(JobRepository.class);
         evaluator = mock(LlmEvaluator.class);
         evaluationService = mock(EvaluationService.class);
-        listener = new SubmittedCvEvaluationListener(applications, evaluator, evaluationService);
+        listener = new SubmittedCvEvaluationListener(applications, jobs, evaluator, evaluationService);
+
+        loadedJob = new Job("Backend Engineer", "desc", "Senior",
+                List.of(new JobRequirement("R1", "5+ years of Java", RequirementKind.MUST_HAVE)), null);
+        ReflectionTestUtils.setField(loadedJob, "id", 7L);
+        when(jobs.findById(7L)).thenReturn(Optional.of(loadedJob));
     }
 
     @Test
@@ -118,6 +134,47 @@ class SubmittedCvEvaluationListenerTest {
         verify(evaluationService, never()).record(any(), any());
     }
 
+    /**
+     * Regression: evaluation on submission threw {@code LazyInitializationException}
+     * on every CV.
+     *
+     * <p>The listener used to pass {@code application.getJob()} straight to the
+     * evaluator. That is a proxy on a detached entity — the repository read has
+     * already committed by the time this runs on the evaluation pool — so
+     * {@code LlmEvaluator} reading {@code job.getRequirements()} threw, the
+     * catch-all logged it, and no CV submitted was ever evaluated. The feature
+     * looked wired up and produced nothing.
+     *
+     * <p>{@code same()} rather than {@code any(Job.class)} is what gives this
+     * test teeth: both candidate instances are a {@code Job} and both carry the
+     * same id, so only identity distinguishes the one that came from the
+     * repository from the one hanging off the detached application.
+     */
+    @Test
+    void theJobIsLoadedFreshRatherThanReadOffTheDetachedApplication() {
+        Application application = application(ApplicationStatus.COMPLETED, "Nine years on the JVM.");
+        when(applications.findById(1L)).thenReturn(Optional.of(application));
+        when(evaluator.evaluate(any(), any())).thenReturn(result());
+
+        listener.evaluate(1L);
+
+        verify(evaluator).evaluate(same(loadedJob), eq("Nine years on the JVM."));
+        verify(evaluationService).record(eq(application), any(EvaluationResult.class));
+    }
+
+    /** A job deleted between submission and this thread starting is not a crash. */
+    @Test
+    void aDeletedJobIsSkippedRatherThanThrowing() {
+        when(applications.findById(1L))
+                .thenReturn(Optional.of(application(ApplicationStatus.COMPLETED, "text")));
+        when(jobs.findById(7L)).thenReturn(Optional.empty());
+
+        listener.evaluate(1L);
+
+        verify(evaluator, never()).evaluate(any(), any());
+        verify(evaluationService, never()).record(any(), any());
+    }
+
     @Test
     void aProviderFailureDoesNotEscape() {
         when(applications.findById(1L))
@@ -152,6 +209,19 @@ class SubmittedCvEvaluationListenerTest {
         assertThat(async.value()).isEqualTo(EvaluationExecutorConfig.EVALUATION_EXECUTOR);
     }
 
+    /**
+     * The application as the repository hands it back on a pool thread.
+     *
+     * <p>The job attached here is a <em>different instance</em> from
+     * {@link #loadedJob}, and that separation is the whole point of the helper.
+     * In production this association is an uninitialised proxy whose
+     * {@code getRequirements()} throws once the session is gone; a unit test
+     * cannot conjure a real proxy, but it can insist that the listener never
+     * reads anything off this object except its id. Giving both roles the same
+     * instance is what would let the bug back in — the assertion in
+     * {@link #theJobIsLoadedFreshRatherThanReadOffTheDetachedApplication} would
+     * pass no matter which one the listener used.
+     */
     private static Application application(ApplicationStatus status, String redactedText) {
         Job job = new Job("Backend Engineer", "desc", "Senior",
                 List.of(new JobRequirement("R1", "5+ years of Java", RequirementKind.MUST_HAVE)), null);

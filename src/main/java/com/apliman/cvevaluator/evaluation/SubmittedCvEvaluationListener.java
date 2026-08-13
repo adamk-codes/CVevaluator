@@ -4,6 +4,8 @@ import com.apliman.cvevaluator.application.Application;
 import com.apliman.cvevaluator.application.ApplicationRepository;
 import com.apliman.cvevaluator.application.ApplicationStatus;
 import com.apliman.cvevaluator.application.CvExtractedEvent;
+import com.apliman.cvevaluator.job.Job;
+import com.apliman.cvevaluator.job.JobRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -37,15 +39,18 @@ public class SubmittedCvEvaluationListener {
     private static final Logger log = LoggerFactory.getLogger(SubmittedCvEvaluationListener.class);
 
     private final ApplicationRepository applications;
+    private final JobRepository jobs;
     private final LlmEvaluator evaluator;
     private final EvaluationService evaluationService;
 
     public SubmittedCvEvaluationListener(
             ApplicationRepository applications,
+            JobRepository jobs,
             LlmEvaluator evaluator,
             EvaluationService evaluationService
     ) {
         this.applications = applications;
+        this.jobs = jobs;
         this.evaluator = evaluator;
         this.evaluationService = evaluationService;
     }
@@ -93,12 +98,34 @@ public class SubmittedCvEvaluationListener {
             return;
         }
 
+        // Loaded by id rather than taken from application.getJob(), and this is
+        // load-bearing. The repository call above has already committed, so the
+        // Application is detached and its job is an uninitialised proxy -
+        // LlmEvaluator reads job.getRequirements(), which on that proxy throws
+        // LazyInitializationException and fails every evaluation on submission.
+        //
+        // Calling getId() on the proxy is safe: the identifier is known without
+        // initialising it, which is why this line can ask for it at all. The
+        // Job that comes back is a fully loaded detached entity, and
+        // requirements is a jsonb basic attribute rather than an association,
+        // so it is populated by this read with no further session needed.
+        //
+        // The alternative - annotating this method @Transactional so the proxy
+        // stays attached - would hold a database connection open across a model
+        // call that takes tens of seconds. Both this class and
+        // AsyncApplicationReevaluationTrigger deliberately avoid that.
+        Job job = jobs.findById(application.getJob().getId()).orElse(null);
+        if (job == null) {
+            log.warn("Job for application {} no longer exists; skipping evaluation", applicationId);
+            return;
+        }
+
         try {
             // Redacted text, never extractedText: PII must not leave the
             // process, and it is also what GroundingChecker matches quotes
             // against. See LlmEvaluator.evaluate.
             EvaluationResult result =
-                    evaluator.evaluate(application.getJob(), application.getRedactedText());
+                    evaluator.evaluate(job, application.getRedactedText());
 
             // The model call is finished before this line, so the write
             // transaction inside record() never spans a network round trip.
