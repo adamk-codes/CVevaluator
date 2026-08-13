@@ -118,6 +118,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/jobs/*/applications")
                                 .hasRole("RECRUITER")
 
+                        // A candidate's own submissions, across every job. Role
+                        // gated as well as scoped to the token subject in the
+                        // handler: the scoping alone would already make a
+                        // recruiter's call return their own (empty) list, but
+                        // "recruiters get a meaningless empty array" is a worse
+                        // answer than "this is not your endpoint".
+                        .requestMatchers(HttpMethod.GET, "/api/me/applications")
+                                .hasRole("CANDIDATE")
+
                         // One submission's status, and the only endpoint both roles
                         // reach: the candidate polls their own submission after
                         // uploading, the recruiter polls the same row on the list.

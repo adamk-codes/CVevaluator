@@ -1,4 +1,4 @@
-import { authHeaders, loadSession, logout } from '../auth/session'
+import { authHeaders, logout } from '../auth/session'
 
 /**
  * The one place that talks to the backend.
@@ -97,79 +97,31 @@ export const listApplications = (jobId) => request(`/api/jobs/${jobId}/applicati
 export const getApplication = (jobId, applicationId) =>
   request(`/api/jobs/${jobId}/applications/${applicationId}`)
 
-export async function submitCv(jobId, file) {
+export function submitCv(jobId, file) {
   const form = new FormData()
   form.append('file', file)
-  const created = await request(`/api/jobs/${jobId}/applications`, {
+  return request(`/api/jobs/${jobId}/applications`, {
     method: 'POST',
     body: form,
     isMultipart: true,
   })
-  remember(jobId, created.id)
-  return created
 }
 
 /* ------------------------------------------ a candidate's own submissions --- */
 
 /**
- * MISSING ENDPOINT — the backend has no "my applications" resource.
+ * Every CV the signed-in candidate has submitted, newest first.
  *
- * <p>{@code GET /api/jobs/{jobId}/applications} is the recruiter's list and
- * returns <em>every</em> candidate's submission on that job. Calling it from a
- * candidate screen and filtering in the browser would put other people's
- * submissions in this user's memory and network log, which is a data leak
- * whether or not the UI draws them. So it is not used here.
+ * <p>Takes no id. The server reads the subject from the token, so there is no
+ * parameter here that could name anyone else — see {@code MyApplicationsController}.
  *
- * <p>Instead each submission this browser makes is remembered locally, and the
- * list is rebuilt by asking for those ids individually through the
- * already-scoped per-application endpoint. Nothing about anyone else is ever
- * requested.
- *
- * <p><strong>The limitation, stated plainly:</strong> this is per-browser. Sign
- * in from a different machine, or clear site data, and the candidate's history
- * looks empty even though the rows exist. That is why the screen says so rather
- * than presenting the list as authoritative.
- *
- * <p>SWAP — when {@code GET /api/me/applications} (or equivalent) exists, the
- * body of this function becomes a single {@code request(...)} call and
- * {@link remember} can be deleted along with its two call sites.
+ * <p>This replaced a localStorage list of ids that were re-fetched one by one,
+ * which existed only because the endpoint did not. That approach was
+ * per-browser: the same candidate on a second machine saw an empty history.
+ * Anything still reading {@code cvevaluator.submissions.*} from storage is a
+ * leftover — nothing writes it now.
  */
-export async function listMyApplications() {
-  const remembered = readRemembered()
-
-  const settled = await Promise.allSettled(
-    remembered.map(({ jobId, applicationId }) => getApplication(jobId, applicationId)),
-  )
-
-  // Rejections are dropped rather than surfaced: a remembered id can legitimately
-  // be gone (deleted job, wiped dev database), and one stale entry must not blank
-  // the whole page.
-  return settled
-    .filter((outcome) => outcome.status === 'fulfilled')
-    .map((outcome) => outcome.value)
-    .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
-}
-
-/** Scoped per user id, so two accounts on one browser do not see each other's list. */
-const rememberKey = () => `cvevaluator.submissions.${loadSession()?.user?.id ?? 'anonymous'}`
-
-function readRemembered() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(rememberKey()) ?? '[]')
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-function remember(jobId, applicationId) {
-  const existing = readRemembered()
-  if (existing.some((entry) => entry.applicationId === applicationId)) return
-  localStorage.setItem(
-    rememberKey(),
-    JSON.stringify([...existing, { jobId: Number(jobId), applicationId }]),
-  )
-}
+export const listMyApplications = () => request('/api/me/applications')
 
 /* --------------------------------------------------------- evaluations --- */
 

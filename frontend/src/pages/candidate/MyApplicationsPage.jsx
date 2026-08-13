@@ -19,6 +19,10 @@ import { Badge, Empty, ErrorAlert, Spinner, formatBytes, formatDate } from '../.
  * actionable and it is theirs to fix — the backend already treats the
  * extraction failure reason as candidate-facing text and authors it
  * accordingly.
+ *
+ * <p>The list comes from {@code GET /api/me/applications}, scoped to the token
+ * subject server-side, so it is the same on every device this candidate signs
+ * in from.
  */
 export default function MyApplicationsPage() {
   const { data: applications, isPending, error } = useMyApplications()
@@ -82,11 +86,6 @@ export default function MyApplicationsPage() {
           ))}
         </div>
       )}
-
-      <p className="hint" style={{ marginTop: 20 }}>
-        This list is remembered by this browser. Applications you submitted on another device are
-        not shown here yet.
-      </p>
     </main>
   )
 }

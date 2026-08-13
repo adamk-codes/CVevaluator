@@ -82,6 +82,35 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
             @Param("userId") Long userId);
 
     /**
+     * Everything one candidate has submitted, newest first.
+     *
+     * <p>Newest first here, and oldest first in {@link #findSummariesByJobId},
+     * which is not an inconsistency. A recruiter reads a job's applicants as a
+     * queue and works through it in arrival order; a candidate opens their own
+     * list to see what they did most recently. Different questions, different
+     * orders.
+     *
+     * <p>Same projection as the other two, and for the same reason: this loads
+     * no {@code extractedText}. A candidate with twenty applications would
+     * otherwise pull twenty CV bodies out of the database to render twenty
+     * filenames.
+     *
+     * <p>Scoped by candidate id in the query rather than filtered afterwards.
+     * The whole point of this endpoint is that a candidate never receives a row
+     * that is not theirs, and a filter applied after the fetch is one refactor
+     * away from not being applied.
+     */
+    @Query("""
+            select new com.apliman.cvevaluator.application.dto.ApplicationStatusResponse(
+                a.id, a.job.id, a.originalFilename, a.status, a.failureReason,
+                a.sizeBytes, a.textLength, a.extractionMethod, a.submittedAt)
+            from Application a
+            where a.candidate.id = :candidateId
+            order by a.submittedAt desc
+            """)
+    List<ApplicationStatusResponse> findSummariesByCandidateId(@Param("candidateId") Long candidateId);
+
+    /**
      * This application, but only if this recruiter posted the job it was
      * submitted against.
      *
