@@ -45,6 +45,9 @@ class ApplicationControllerTest {
     private ApplicationService applicationService;
 
     @MockitoBean
+    private ApplicationRepository applicationRepository;
+
+    @MockitoBean
     private JobRepository jobRepository;
 
     @MockitoBean

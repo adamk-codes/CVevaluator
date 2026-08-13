@@ -1,6 +1,7 @@
 package com.apliman.cvevaluator.application;
 
 import com.apliman.cvevaluator.application.dto.ApplicationResponse;
+import com.apliman.cvevaluator.application.dto.ApplicationStatusResponse;
 import com.apliman.cvevaluator.job.JobNotFoundException;
 import com.apliman.cvevaluator.job.JobRepository;
 import com.apliman.cvevaluator.security.CurrentUserProvider;
@@ -13,12 +14,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.net.URI;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/jobs/{jobId}/applications")
@@ -31,6 +36,7 @@ public class ApplicationController {
 
     private final StorageService storageService;
     private final ApplicationService applicationService;
+    private final ApplicationRepository applicationRepository;
     private final JobRepository jobRepository;
     private final UserRepository userRepository;
     private final CurrentUserProvider currentUserProvider;
@@ -38,12 +44,14 @@ public class ApplicationController {
     public ApplicationController(
             StorageService storageService,
             ApplicationService applicationService,
+            ApplicationRepository applicationRepository,
             JobRepository jobRepository,
             UserRepository userRepository,
             CurrentUserProvider currentUserProvider
     ) {
         this.storageService = storageService;
         this.applicationService = applicationService;
+        this.applicationRepository = applicationRepository;
         this.jobRepository = jobRepository;
         this.userRepository = userRepository;
         this.currentUserProvider = currentUserProvider;
@@ -58,10 +66,9 @@ public class ApplicationController {
      * (slow, external, not rollback-able) and the row insert. Only the second
      * is transactional, inside {@link ApplicationService#create}.
      *
-     * <p>No {@code Location} header yet: 202 should point at a status resource
-     * to poll, and {@code GET /api/jobs/{jobId}/applications/{id}} does not
-     * exist. The header goes in with that endpoint rather than pointing at a
-     * 404 in the meantime.
+     * <p>Carries a {@code Location} header pointing at {@link #status}, which
+     * is the resource a client polls until the status is terminal. The header
+     * was held back until that endpoint existed rather than pointing at a 404.
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApplicationResponse> submitCv(
@@ -111,12 +118,72 @@ public class ApplicationController {
             throw e;
         }
 
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(new ApplicationResponse(
-                saved.getId(),
-                jobId,
-                saved.getOriginalFilename(),
-                saved.getStatus(),
-                saved.getSubmittedAt()
-        ));
+        return ResponseEntity
+                .status(HttpStatus.ACCEPTED)
+                .location(URI.create("/api/jobs/" + jobId + "/applications/" + saved.getId()))
+                .body(new ApplicationResponse(
+                        saved.getId(),
+                        jobId,
+                        saved.getOriginalFilename(),
+                        saved.getStatus(),
+                        saved.getSubmittedAt()
+                ));
+    }
+
+    /**
+     * Every CV submitted against one job, oldest first.
+     *
+     * <p>The recruiter's list. Submission order rather than newest-first so it
+     * reads in the same order as the re-evaluation queue in
+     * {@code ApplicationRepository.findByJobAndStatusNotOrderBySubmittedAt} —
+     * two screens disagreeing about the order of the same rows is a bug report
+     * waiting to happen.
+     *
+     * <p>The job existence check is not redundant with the query returning an
+     * empty list. A job with no CVs and a job id that does not exist are
+     * different answers and the client acts differently on each: one is an
+     * empty state, the other is a broken link.
+     *
+     * <p>Returns DTOs straight from the repository — see
+     * {@link ApplicationRepository#findSummariesByJobId} for why this does not
+     * load entities and map them.
+     */
+    @GetMapping
+    public List<ApplicationStatusResponse> list(@PathVariable Long jobId) {
+        if (!jobRepository.existsById(jobId)) {
+            throw new JobNotFoundException(jobId);
+        }
+        return applicationRepository.findSummariesByJobId(jobId);
+    }
+
+    /**
+     * One CV's position in the pipeline — the poll target named by the 202's
+     * {@code Location} header.
+     *
+     * <p>Terminal states are {@code COMPLETED} and {@code FAILED}; a client
+     * stops polling on either. Note that {@code COMPLETED} means the text
+     * extracted, <strong>not</strong> that an evaluation exists — evaluation is
+     * a second async stage fired from {@code CvExtractedEvent}, so a client
+     * that wants a verdict polls {@code GET
+     * /api/applications/{id}/evaluation} after this reaches COMPLETED and
+     * treats its 404 as "not yet". Collapsing the two stages into one status
+     * enum was the alternative; it was rejected because a CV that extracts
+     * fine and then trips the grounding checker would be indistinguishable
+     * from one that never parsed.
+     *
+     * <p>404 when the application exists but belongs to a different job, not
+     * just when the id is unknown. The path asserts a relationship and a path
+     * that asserts something false is not found.
+     */
+    @GetMapping("/{applicationId}")
+    public ApplicationStatusResponse status(
+            @PathVariable Long jobId,
+            @PathVariable Long applicationId
+    ) {
+        if (!jobRepository.existsById(jobId)) {
+            throw new JobNotFoundException(jobId);
+        }
+        return applicationRepository.findSummaryByIdAndJobId(applicationId, jobId)
+                .orElseThrow(() -> new ApplicationNotFoundException(applicationId));
     }
 }
