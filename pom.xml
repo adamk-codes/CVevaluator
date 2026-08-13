@@ -68,6 +68,34 @@
 			<artifactId>spring-boot-starter-webmvc</artifactId>
 		</dependency>
 
+		<!-- Authentication and authorisation. Two artifacts, and the second one is
+		     the non-obvious half:
+
+		     - starter-security brings the filter chain, the lambda DSL, method
+		       security and BCryptPasswordEncoder.
+		     - starter-security-oauth2-resource-server brings the bearer-token
+		       filter AND spring-security-oauth2-jose, which is where
+		       NimbusJwtEncoder and NimbusJwtDecoder live. Those are what sign and
+		       verify our own tokens.
+
+		     No third-party JWT library (jjwt, auth0) is on the classpath and none
+		     is needed: "OAuth2 resource server" here means only "reads a bearer
+		     token", not "talks to an authorization server". We are our own issuer,
+		     with a symmetric HMAC key - see SecurityConfig.
+
+		     Note the Boot 4 artifact naming. It is spring-boot-starter-security-
+		     oauth2-resource-server, not the Boot 3 spring-boot-starter-oauth2-
+		     resource-server. Both ids resolve from the 4.1 BOM; the first matches
+		     the modular naming the rest of this file already uses. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+		</dependency>
+
 		<!-- Text extraction. PDFBox 3 logs through SLF4J natively; POI logs through
 		     log4j-api, which spring-boot-starter-logging already bridges to Logback
 		     via log4j-to-slf4j, so no extra wiring is needed. -->
@@ -115,6 +143,11 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>

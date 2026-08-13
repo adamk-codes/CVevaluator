@@ -5,6 +5,7 @@ import com.apliman.cvevaluator.application.ApplicationNotFoundException;
 import com.apliman.cvevaluator.application.ApplicationRepository;
 import com.apliman.cvevaluator.evaluation.dto.EvaluationResponse;
 import com.apliman.cvevaluator.evaluation.dto.RequirementAssessmentResponse;
+import com.apliman.cvevaluator.security.CurrentUserProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,6 +25,24 @@ import java.util.List;
  * carry a value it does not need and cannot be wrong about in a useful way.
  * The cost is that the two application-related controllers do not sit at the
  * same prefix.
+ *
+ * <h2>Who can read any of this</h2>
+ *
+ * <p>Recruiters, and only the one who posted the job. Two rules stacked, and
+ * they fail differently on purpose:
+ *
+ * <ul>
+ *   <li>A <strong>candidate</strong> gets 403 from the filter chain before any
+ *       method here runs — {@code /api/applications/**} is RECRUITER-only in
+ *       {@code SecurityConfig}. Candidates never see the model's assessment of
+ *       their own CV: not the verdict, not the dimension scores, not the
+ *       per-requirement reasoning. That is a product decision. The 403 is
+ *       identical whether or not the id exists, so the blanket refusal
+ *       discloses nothing.</li>
+ *   <li>A <strong>recruiter who does not own the job</strong> gets 404, from
+ *       {@link #application}. Not 403 — a 403 here would confirm the
+ *       application exists, which is the whole thing worth hiding.</li>
+ * </ul>
  */
 @RestController
 @RequestMapping("/api/applications/{applicationId}")
@@ -31,10 +50,16 @@ public class EvaluationController {
 
     private final EvaluationService evaluations;
     private final ApplicationRepository applications;
+    private final CurrentUserProvider currentUser;
 
-    public EvaluationController(EvaluationService evaluations, ApplicationRepository applications) {
+    public EvaluationController(
+            EvaluationService evaluations,
+            ApplicationRepository applications,
+            CurrentUserProvider currentUser
+    ) {
         this.evaluations = evaluations;
         this.applications = applications;
+        this.currentUser = currentUser;
     }
 
     /**
@@ -124,9 +149,19 @@ public class EvaluationController {
      * Resolved rather than assumed, so an unknown application id is a 404 that
      * says so instead of an empty evaluation list that reads as "never
      * evaluated".
+     *
+     * <p>Scoped to the caller's own postings, and that scoping is the single
+     * choke point for every endpoint on this controller — reads, the
+     * per-requirement lookup and the delete all go through here. Adding an
+     * endpoint that resolves the application some other way is the way to
+     * reintroduce the hole, so: resolve it here.
+     *
+     * <p>"Not found" and "not yours" are one answer. See
+     * {@link ApplicationRepository#findByIdAndJob_CreatedByRecruiter_Id}.
      */
     private Application application(Long applicationId) {
-        return applications.findById(applicationId)
+        return applications
+                .findByIdAndJob_CreatedByRecruiter_Id(applicationId, currentUser.currentUserId())
                 .orElseThrow(() -> new ApplicationNotFoundException(applicationId));
     }
 }

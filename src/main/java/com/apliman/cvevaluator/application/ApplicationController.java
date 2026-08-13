@@ -1,6 +1,7 @@
 package com.apliman.cvevaluator.application;
 
 import com.apliman.cvevaluator.application.dto.ApplicationResponse;
+import com.apliman.cvevaluator.auth.InvalidCredentialsException;
 import com.apliman.cvevaluator.job.JobNotFoundException;
 import com.apliman.cvevaluator.job.JobRepository;
 import com.apliman.cvevaluator.security.CurrentUserProvider;
@@ -76,13 +77,20 @@ public class ApplicationController {
         //    not exist would leave a file on disk with no row referencing it.
         // 2. Then the file write, outside any transaction.
         // 3. Then the insert, which is the only transactional step.
+        // From the token, never from a request parameter. Before authentication
+        // this came from a header the client set, which meant anyone could
+        // submit a CV as anyone. It is now the verified token subject, and the
+        // CANDIDATE role gate in SecurityConfig is what stops a recruiter
+        // submitting against their own posting.
         Long candidateId = currentUserProvider.currentUserId();
 
         if (!jobRepository.existsById(jobId)) {
             throw new JobNotFoundException(jobId);
         }
+        // A live token for a deleted account. 401, not 500 - the caller can act
+        // on "log in again" and cannot act on "something went wrong".
         if (!userRepository.existsById(candidateId)) {
-            throw new IllegalStateException("Current user not found");
+            throw new InvalidCredentialsException();
         }
 
         // Disk first, database second. Reversing this trades a harmless orphan

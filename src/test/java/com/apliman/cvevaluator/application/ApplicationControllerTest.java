@@ -2,7 +2,8 @@ package com.apliman.cvevaluator.application;
 
 import com.apliman.cvevaluator.job.Job;
 import com.apliman.cvevaluator.job.JobRepository;
-import com.apliman.cvevaluator.security.CurrentUserProvider;
+import com.apliman.cvevaluator.security.TestTokens;
+import com.apliman.cvevaluator.security.WithSecurityRules;
 import com.apliman.cvevaluator.storage.InvalidUploadException;
 import com.apliman.cvevaluator.storage.StorageService;
 import com.apliman.cvevaluator.storage.StoredFile;
@@ -33,7 +34,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ApplicationController.class)
+@WithSecurityRules
 class ApplicationControllerTest {
+
+    private static final long CANDIDATE_ID = 7L;
 
     @Autowired
     private MockMvc mockMvc;
@@ -50,24 +54,22 @@ class ApplicationControllerTest {
     @MockitoBean
     private UserRepository userRepository;
 
-    @MockitoBean
-    private CurrentUserProvider currentUserProvider;
-
     private static final MockMultipartFile CV = new MockMultipartFile(
             "file", "cv.pdf", "application/pdf", "%PDF-1.4 pretend".getBytes());
 
     @Test
     void submitCv_writesFileToDiskBeforeInsertingTheRow() throws Exception {
-        when(currentUserProvider.currentUserId()).thenReturn(7L);
         when(jobRepository.existsById(1L)).thenReturn(true);
-        when(userRepository.existsById(7L)).thenReturn(true);
+        when(userRepository.existsById(CANDIDATE_ID)).thenReturn(true);
 
         StoredFile stored = new StoredFile("a-uuid.pdf", "cv.pdf", "pdf", 16L);
         when(storageService.store(any())).thenReturn(stored);
         when(applicationService.create(anyLong(), anyLong(), any(), anyString()))
                 .thenReturn(persistedApplication());
 
-        mockMvc.perform(multipart("/api/jobs/1/applications").file(CV))
+        mockMvc.perform(multipart("/api/jobs/1/applications")
+                        .file(CV)
+                        .with(TestTokens.candidate(CANDIDATE_ID)))
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.id").value(42))
                 .andExpect(jsonPath("$.jobId").value(1))
@@ -80,15 +82,19 @@ class ApplicationControllerTest {
         // enforces the order, so it is pinned here.
         InOrder inOrder = inOrder(storageService, applicationService);
         inOrder.verify(storageService).store(any());
-        inOrder.verify(applicationService).create(eq(1L), eq(7L), eq(stored), eq("application/pdf"));
+        // The candidate id is the token subject, not anything the request body
+        // or a header supplied.
+        inOrder.verify(applicationService)
+                .create(eq(1L), eq(CANDIDATE_ID), eq(stored), eq("application/pdf"));
     }
 
     @Test
     void submitCv_unknownJob_returns404WithoutTouchingStorage() throws Exception {
-        when(currentUserProvider.currentUserId()).thenReturn(7L);
         when(jobRepository.existsById(999L)).thenReturn(false);
 
-        mockMvc.perform(multipart("/api/jobs/999/applications").file(CV))
+        mockMvc.perform(multipart("/api/jobs/999/applications")
+                        .file(CV)
+                        .with(TestTokens.candidate(CANDIDATE_ID)))
                 .andExpect(status().isNotFound());
 
         // A rejected request must not leave a file behind. This is why the
@@ -104,16 +110,17 @@ class ApplicationControllerTest {
      */
     @Test
     void submitCv_contentDoesNotMatchExtension_returns400WithoutInsertingARow() throws Exception {
-        when(currentUserProvider.currentUserId()).thenReturn(7L);
         when(jobRepository.existsById(1L)).thenReturn(true);
-        when(userRepository.existsById(7L)).thenReturn(true);
+        when(userRepository.existsById(CANDIDATE_ID)).thenReturn(true);
         when(storageService.store(any()))
                 .thenThrow(new InvalidUploadException("File content does not match its .pdf extension"));
 
         MockMultipartFile disguised =
                 new MockMultipartFile("file", "cv.pdf", "application/pdf", new byte[] { 'M', 'Z', 0x00 });
 
-        mockMvc.perform(multipart("/api/jobs/1/applications").file(disguised))
+        mockMvc.perform(multipart("/api/jobs/1/applications")
+                        .file(disguised)
+                        .with(TestTokens.candidate(CANDIDATE_ID)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.message").value("File content does not match its .pdf extension"));

@@ -1,6 +1,7 @@
 package com.apliman.cvevaluator.job;
 
-import com.apliman.cvevaluator.security.HeaderCurrentUserProvider;
+import com.apliman.cvevaluator.security.TestTokens;
+import com.apliman.cvevaluator.security.WithSecurityRules;
 import com.apliman.cvevaluator.user.Role;
 import com.apliman.cvevaluator.user.User;
 import com.apliman.cvevaluator.user.UserRepository;
@@ -19,6 +20,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,10 +37,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * would leave these tests asserting that the controller calls a collaborator,
  * which is not the thing that has to be true — what has to be true is that six
  * MUST_HAVEs get rejected, and that only happens if the real rules run.
+ *
+ * <p>Every request carries a recruiter token, because since authentication went
+ * in, one that does not is a 401 and never reaches the validator at all. The
+ * rules about <em>who</em> may call these endpoints live in
+ * {@link JobControllerAuthorizationTest}; this class is still about the
+ * requirements.
  */
 @WebMvcTest(JobController.class)
 @Import(JobRequirementsValidator.class)
+@WithSecurityRules
 class JobControllerRequirementsTest {
+
+    private static final long RECRUITER_ID = 7L;
 
     @Autowired
     private MockMvc mockMvc;
@@ -50,15 +61,11 @@ class JobControllerRequirementsTest {
     private UserRepository userRepository;
 
     @MockitoBean
-    private HeaderCurrentUserProvider currentUserProvider;
-
-    @MockitoBean
     private ApplicationReevaluationTrigger reevaluationTrigger;
 
     @BeforeEach
     void recruiterExists() {
-        when(currentUserProvider.currentUserId()).thenReturn(7L);
-        when(userRepository.findById(7L)).thenReturn(Optional.of(
+        when(userRepository.findById(RECRUITER_ID)).thenReturn(Optional.of(
                 new User("Recruiter", "hash", "recruiter@example.com", Role.RECRUITER)));
         // save() returns its argument, so the response body reflects the entity
         // the controller actually built rather than a stub that agrees with it.
@@ -68,6 +75,7 @@ class JobControllerRequirementsTest {
     @Test
     void createJob_validRequirements_persistsThemAtVersionOne() throws Exception {
         mockMvc.perform(post("/api/jobs")
+                        .with(TestTokens.recruiter(RECRUITER_ID))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createJobBody("""
                                 {"id": "R1", "text": "5+ years of Java", "kind": "MUST_HAVE"},
@@ -87,6 +95,7 @@ class JobControllerRequirementsTest {
     @Test
     void createJob_omittedIds_areAssignedR1UpwardsInSubmissionOrder() throws Exception {
         mockMvc.perform(post("/api/jobs")
+                        .with(TestTokens.recruiter(RECRUITER_ID))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createJobBody("""
                                 {"text": "5+ years of Java", "kind": "MUST_HAVE"},
@@ -104,6 +113,7 @@ class JobControllerRequirementsTest {
     @Test
     void createJob_sixMustHaves_isRejected() throws Exception {
         mockMvc.perform(post("/api/jobs")
+                        .with(TestTokens.recruiter(RECRUITER_ID))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createJobBody(mustHaves(6))))
                 .andExpect(status().isBadRequest())
@@ -119,6 +129,7 @@ class JobControllerRequirementsTest {
     @Test
     void createJob_fiveMustHaves_isAccepted() throws Exception {
         mockMvc.perform(post("/api/jobs")
+                        .with(TestTokens.recruiter(RECRUITER_ID))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createJobBody(mustHaves(5))))
                 .andExpect(status().isCreated());
@@ -127,6 +138,7 @@ class JobControllerRequirementsTest {
     @Test
     void createJob_noMustHaves_isRejected() throws Exception {
         mockMvc.perform(post("/api/jobs")
+                        .with(TestTokens.recruiter(RECRUITER_ID))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createJobBody("""
                                 {"id": "R1", "text": "Kafka", "kind": "NICE_TO_HAVE"},
@@ -142,6 +154,7 @@ class JobControllerRequirementsTest {
     @Test
     void createJob_duplicateIds_isRejected() throws Exception {
         mockMvc.perform(post("/api/jobs")
+                        .with(TestTokens.recruiter(RECRUITER_ID))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createJobBody("""
                                 {"id": "R1", "text": "5+ years of Java", "kind": "MUST_HAVE"},
@@ -158,6 +171,7 @@ class JobControllerRequirementsTest {
     @Test
     void createJob_noRequirementsAtAll_isRejected() throws Exception {
         mockMvc.perform(post("/api/jobs")
+                        .with(TestTokens.recruiter(RECRUITER_ID))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"title": "Senior Backend Engineer", "seniority": "Senior", "requirements": []}
@@ -175,6 +189,7 @@ class JobControllerRequirementsTest {
         }
 
         mockMvc.perform(post("/api/jobs")
+                        .with(TestTokens.recruiter(RECRUITER_ID))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createJobBody(entries.toString())))
                 .andExpect(status().isBadRequest())
@@ -185,9 +200,11 @@ class JobControllerRequirementsTest {
     @Test
     void replaceRequirements_incrementsTheVersionAndCallsTheTrigger() throws Exception {
         Job job = existingJob();
-        when(jobRepository.findById(1L)).thenReturn(Optional.of(job));
+        when(jobRepository.findByIdAndCreatedByRecruiter_Id(1L, RECRUITER_ID))
+                .thenReturn(Optional.of(job));
 
         mockMvc.perform(put("/api/jobs/1/requirements")
+                        .with(TestTokens.recruiter(RECRUITER_ID))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"requirements": [
@@ -216,9 +233,11 @@ class JobControllerRequirementsTest {
     @Test
     void replaceRequirements_invalidList_leavesTheJobUntouchedAndDoesNotTrigger() throws Exception {
         Job job = existingJob();
-        when(jobRepository.findById(1L)).thenReturn(Optional.of(job));
+        when(jobRepository.findByIdAndCreatedByRecruiter_Id(1L, RECRUITER_ID))
+                .thenReturn(Optional.of(job));
 
         mockMvc.perform(put("/api/jobs/1/requirements")
+                        .with(TestTokens.recruiter(RECRUITER_ID))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"requirements": [
@@ -237,9 +256,11 @@ class JobControllerRequirementsTest {
 
     @Test
     void replaceRequirements_unknownJob_returns404WithoutTriggering() throws Exception {
-        when(jobRepository.findById(999L)).thenReturn(Optional.empty());
+        when(jobRepository.findByIdAndCreatedByRecruiter_Id(eq(999L), any()))
+                .thenReturn(Optional.empty());
 
         mockMvc.perform(put("/api/jobs/999/requirements")
+                        .with(TestTokens.recruiter(RECRUITER_ID))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"requirements": [
